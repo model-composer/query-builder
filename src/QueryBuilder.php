@@ -542,6 +542,7 @@ class QueryBuilder
 				break;
 
 			case 'date':
+			case 'time':
 			case 'datetime':
 				if (is_object($v) and get_class($v) == 'DateTime')
 					$checkData = $v;
