@@ -90,6 +90,125 @@ class QueryBuilder
 	}
 
 	/**
+	 * @param string $table
+	 * @param array|int $where
+	 * @param array $options
+	 * @return string
+	 */
+	public function select(string $table, array|int $where = [], array $options = []): string
+	{
+		$options = array_merge([
+			'alias' => null,
+			'joins' => [],
+			'fields' => null,
+			'group_by' => null,
+			'order_by' => null,
+			'limit' => null,
+		], $options);
+
+		$whereStr = $this->buildQueryString($where, [
+			'table' => $table,
+			'alias' => $options['alias'],
+			'joins' => $options['joins'],
+		]);
+		$joinStr = $this->buildJoins($options['alias'] ?? $table, $options['joins']);
+
+		$tableModel = $this->parser->getTable($table);
+
+		$fields_str = [];
+		if ($options['fields']) {
+			if (is_array($options['fields'])) {
+				foreach ($options['fields'] as $field) {
+					if (!isset($tableModel->columns[$field]))
+						throw new \Exception('Field "' . $field . '" does not exist');
+					if ($tableModel->columns[$field]['type'] === 'point') {
+						$parsedField = $this->parseColumn($field, ['table' => $options['alias'] ?? $table]);
+						$fields_str[] = 'ST_AsText(' . $parsedField . ') AS ' . $this->parseColumn($field);
+					} else {
+						$fields_str[] = $this->parseColumn($field, ['table' => $options['alias'] ?? $table]);
+					}
+				}
+			} elseif (is_string($options['fields'])) {
+				$fields_str = $options['fields'];
+			} else {
+				throw new \Exception('Error while building select query, "fields" must be either an array or a string');
+			}
+		} else {
+			foreach ($tableModel->columns as $field => $fieldOpt) {
+				if ($fieldOpt['type'] === 'point') {
+					$parsedField = $this->parseColumn($field, ['table' => $options['alias'] ?? $table]);
+					$fields_str[] = 'ST_AsText(' . $parsedField . ') AS ' . $this->parseColumn($field);
+				}
+			}
+		}
+
+		$fields_str = implode(',', $fields_str);
+
+		$fields_from_joins = [];
+		foreach ($options['joins'] as $join) {
+			$tableName = $join['alias'] ?? $join['table'];
+			foreach (($join['fields'] ?? []) as $fieldIdx => $field) {
+				if (is_numeric($fieldIdx))
+					$fields_from_joins[] = $this->parseColumn($field, ['table' => $tableName]);
+				else
+					$fields_from_joins[] = $this->parseColumn($fieldIdx, ['table' => $tableName]) . ' AS ' . $this->parseColumn($field);
+			}
+		}
+
+		if ($fields_from_joins) {
+			if (str_starts_with($fields_str, '*'))
+				$fields_str = '`' . $table . '`.' . $fields_str;
+			$fields_str .= ',' . implode(',', $fields_from_joins);
+		}
+
+		$qry = 'SELECT ' . $fields_str . ' FROM `' . $table . '`' . $joinStr;
+		if ($whereStr)
+			$qry .= ' WHERE ' . $whereStr;
+
+		if ($options['group_by'] !== null) {
+			if (!is_array($options['group_by']))
+				$options['group_by'] = [$options['group_by']];
+
+			foreach ($options['group_by'] as &$field) {
+				$field = $this->parseColumn($field, [
+					'table' => $options['alias'] ?? $table,
+					'joins' => $options['joins'],
+				]);
+			}
+			unset($field);
+
+			$qry .= ' GROUP BY ' . implode(',', $options['group_by']);
+		}
+
+		if ($options['order_by'] !== null) {
+			if (is_array($options['order_by'])) {
+				foreach ($options['order_by'] as &$sortingField) {
+					if (!is_array($sortingField))
+						$sortingField = [$sortingField, 'ASC'];
+					if (!in_array(strtoupper($sortingField[1]), ['ASC', 'DESC']))
+						throw new \Exception('Bad "order by" direction');
+
+					$sortingField[0] = $this->parseColumn($sortingField[0], [
+						'table' => $options['alias'] ?? $table,
+						'joins' => $options['joins'],
+					]);
+					$sortingField = implode(' ', $sortingField);
+				}
+				unset($sortingField);
+
+				$qry .= ' ORDER BY ' . implode(',', $options['order_by']);
+			} else {
+				$qry .= ' ORDER BY ' . $options['order_by'];
+			}
+		}
+
+		if ($options['limit'] !== null)
+			$qry .= ' LIMIT ' . $options['limit'];
+
+		return $qry;
+	}
+
+	/**
 	 * @param array|int $where
 	 * @param array $options
 	 * @return string
@@ -286,6 +405,31 @@ class QueryBuilder
 		}
 
 		return implode(' ' . $options['glue'] . ' ', $str);
+	}
+
+	/**
+	 * @param string $table
+	 * @param array $joins
+	 * @return string
+	 */
+	private function buildJoins(string $table, array $joins): string
+	{
+		$join_str = [];
+
+		foreach ($joins as $join) {
+			$join = array_merge([
+				'type' => 'INNER',
+				'origin-table' => $table,
+			], $join);
+
+			if (isset($join['full-on']))
+				$on_string = '(' . $join['full-on'] . ')';
+			else
+				$on_string = '`' . $join['origin-table'] . '`.`' . $join['on'] . '` = `' . ($join['alias'] ?? $join['table']) . '`.`' . $join['join-on'] . '`';
+			$join_str[] = ' ' . $join['type'] . ' JOIN `' . $join['table'] . '`' . (isset($join['alias']) ? ' AS `' . $join['alias'] . '`' : '') . ' ON ' . $on_string;
+		}
+
+		return implode('', $join_str);
 	}
 
 	/**
