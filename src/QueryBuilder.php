@@ -139,6 +139,7 @@ class QueryBuilder
 				throw new \Exception('Error while building select query, "fields" must be either an array or a string');
 			}
 		} else {
+			$fields_str[] = '*';
 			foreach ($tableModel->columns as $field => $fieldOpt) {
 				if ($fieldOpt['type'] === 'point') {
 					$parsedField = $this->parseColumn($field, ['table' => $options['alias'] ?? $table]);
