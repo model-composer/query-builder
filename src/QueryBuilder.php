@@ -364,7 +364,7 @@ class QueryBuilder
 		if (!array_key_exists($columnName, $table->columns))
 			throw new \Exception('Database column "' . $table->name . '.' . $columnName . '" does not exist!');
 
-		$column = $table->columns;
+		$column = $table->columns[$columnName];
 		if ($v === null) {
 			if (!$column['null'])
 				throw new \Exception('"' . $table->name . '.' . $columnName . '" cannot be null');
