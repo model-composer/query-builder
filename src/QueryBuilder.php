@@ -34,8 +34,6 @@ class QueryBuilder
 		if (empty($data)) {
 			return $qry_init . ' INTO `' . $table . '`() VALUES()';
 		} else {
-			$this->validateData($table, $data);
-
 			$qryStr = $this->buildQueryString($data, [
 				'table' => $table,
 				'glue' => ',',
@@ -349,18 +347,6 @@ class QueryBuilder
 		} else {
 			return $this->getDb()->quote($v);
 		}
-	}
-
-	/**
-	 * @param string $table
-	 * @param array $data
-	 * @return void
-	 */
-	private function validateData(string $table, array $data): void
-	{
-		$tableModel = $this->parser->getTable($table);
-		foreach ($data as $k => $v)
-			$this->validateColumnValue($tableModel, $k, $v);
 	}
 
 	/**
