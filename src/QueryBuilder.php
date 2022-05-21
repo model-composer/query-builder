@@ -5,11 +5,16 @@ use Model\DbParser\Table;
 
 class QueryBuilder
 {
-	private Parser $parser;
-
-	public function __construct(\PDO $db)
+	public function __construct(private readonly Parser $parser)
 	{
-		$this->parser = new Parser($db);
+	}
+
+	/**
+	 * @return Parser
+	 */
+	private function getParser(): Parser
+	{
+		return $this->parser;
 	}
 
 	/**
