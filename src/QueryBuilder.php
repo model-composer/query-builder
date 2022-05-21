@@ -205,7 +205,7 @@ class QueryBuilder
 
 					$parsedColumn = implode(',', $parsedColumnArr);
 				} else {
-					if (is_string($column))
+					if (!is_string($column))
 						throw new \Exception('Column name must be a string');
 
 					if ($tableModel) {
