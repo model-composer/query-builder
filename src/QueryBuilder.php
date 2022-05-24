@@ -134,7 +134,7 @@ class QueryBuilder
 					}
 				}
 			} elseif (is_string($options['fields'])) {
-				$fields_str = $options['fields'];
+				$fields_str = [$options['fields']];
 			} else {
 				throw new \Exception('Error while building select query, "fields" must be either an array or a string');
 			}
