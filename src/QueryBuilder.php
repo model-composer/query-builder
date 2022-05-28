@@ -444,11 +444,11 @@ class QueryBuilder
 			if (!isset($join['table']))
 				throw new \Exception('Bad join format');
 
-			if (!isset($join['full-on']) or !isset($join['full_on']))
+			if (isset($join['full-on']) or isset($join['full_on']))
 				throw new \Exception('"full-on" option in joins is deprecated');
-			if (!isset($join['join-on']) or !isset($join['join_field']))
+			if (isset($join['join-on']) or isset($join['join_field']))
 				throw new \Exception('"join-on"/"join-field" options in joins are deprecated');
-			if (!isset($join['full_fields']))
+			if (isset($join['full_fields']))
 				throw new \Exception('"full_fields" option in joins is deprecated');
 
 			if (!isset($join['type']))
