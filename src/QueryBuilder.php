@@ -116,7 +116,9 @@ class QueryBuilder
 			'alias' => $options['alias'],
 			'joins' => $options['joins'],
 		]);
-		$joinStr = $this->buildJoins($options['alias'] ?? $table, $options['joins']);
+
+		$options['joins'] = $this->normalizeJoins($options['alias'] ?? $table, $options['joins']);
+		$joinStr = $this->buildJoins($options['joins']);
 
 		$tableModel = $this->parser->getTable($table);
 
@@ -152,12 +154,11 @@ class QueryBuilder
 
 		$fields_from_joins = [];
 		foreach ($options['joins'] as $join) {
-			$tableName = $join['alias'] ?? $join['table'];
-			foreach (($join['fields'] ?? []) as $fieldIdx => $field) {
+			foreach ($join['fields'] as $fieldIdx => $field) {
 				if (is_numeric($fieldIdx))
-					$fields_from_joins[] = $this->parseColumn($field, ['table' => $tableName]);
+					$fields_from_joins[] = $this->parseColumn($field, ['table' => $join['origin-table']]);
 				else
-					$fields_from_joins[] = $this->parseColumn($fieldIdx, ['table' => $tableName]) . ' AS ' . $this->parseColumn($field);
+					$fields_from_joins[] = $this->parseColumn($fieldIdx, ['table' => $join['origin-table']]) . ' AS ' . $this->parseColumn($field);
 			}
 		}
 
@@ -426,12 +427,12 @@ class QueryBuilder
 	 *
 	 * @param string $table
 	 * @param array $joins
-	 * @return string
+	 * @return array
 	 * @throws \Exception
 	 */
-	private function buildJoins(string $table, array $joins): string
+	private function normalizeJoins(string $table, array $joins): array
 	{
-		$join_str = [];
+		$normalized = [];
 
 		foreach ($joins as $join_key => $join) {
 			if (is_string($join))
@@ -454,7 +455,25 @@ class QueryBuilder
 				$join['type'] = 'INNER';
 			if (!isset($join['origin-table']))
 				$join['origin-table'] = $table;
+			if (!isset($join['fields']))
+				$join['fields'] = [];
 
+			$normalized[] = $join;
+		}
+
+		return $normalized;
+	}
+
+	/**
+	 * @param array $joins
+	 * @return string
+	 * @throws \Exception
+	 */
+	private function buildJoins(array $joins): string
+	{
+		$join_str = [];
+
+		foreach ($joins as $join) {
 			$tableModel = $this->parser->getTable($join['origin-table']);
 			$joinTableModel = $this->parser->getTable($join['table']);
 
@@ -466,7 +485,7 @@ class QueryBuilder
 							if ($fk_found === null)
 								$fk_found = $fk;
 							else // Ambiguous: two FKs for the same table
-								throw new \Exception('Join error: two FKs found in table "' . $table . '" towards table "' . $join['table'] . '".');
+								throw new \Exception('Join error: two FKs found in table "' . $join['origin-table'] . '" towards table "' . $join['table'] . '".');
 						}
 					}
 				}
@@ -478,11 +497,11 @@ class QueryBuilder
 				} else {
 					foreach ($joinTableModel->columns as $column) {
 						foreach ($column['foreign_keys'] as $fk) {
-							if ($fk['ref_table'] === $table) {
+							if ($fk['ref_table'] === $join['origin-table']) {
 								if ($fk_found === null)
 									$fk_found = $fk;
 								else // Ambiguous: two FKs for the same table
-									throw new \Exception('Join error: two FKs found in table "' . $join['table'] . '" towards table "' . $table . '".');
+									throw new \Exception('Join error: two FKs found in table "' . $join['table'] . '" towards table "' . $join['origin-table'] . '".');
 							}
 						}
 					}
@@ -495,7 +514,7 @@ class QueryBuilder
 				}
 
 				if ($fk_found === null)
-					throw new \Exception('Join error: no matching FK found between tables "' . $table . '" e "' . $join['table'] . '".');
+					throw new \Exception('Join error: no matching FK found between tables "' . $join['origin-table'] . '" e "' . $join['table'] . '".');
 			} else if (is_string($join['on'])) {
 				$join['on'] = [$join['on']];
 			}
@@ -511,7 +530,7 @@ class QueryBuilder
 					} else {
 						// Is the name of a column, let's search a matching FK
 						if (!isset($tableModel->columns[$on_value]))
-							throw new \Exception('Join error: column "' . $on_value . '" does not exist in table "' . $table . '"!');
+							throw new \Exception('Join error: column "' . $on_value . '" does not exist in table "' . $join['origin-table'] . '"!');
 
 						$fk_found = null;
 						foreach ($tableModel->columns[$on_value]['foreign_keys'] as $foreign_key) {
@@ -579,12 +598,11 @@ class QueryBuilder
 			$table = $options['table'];
 
 			foreach ($options['joins'] as $join) {
-				$joinedTable = $join['alias'] ?? $join['table'];
-				foreach (($join['fields'] ?? []) as $fieldIdx => $field) {
+				foreach ($join['fields'] as $fieldIdx => $field) {
 					$fieldName = is_numeric($fieldIdx) ? $field : $fieldIdx;
 
 					if ($field === $k) {
-						$table = $joinedTable;
+						$table = $join['origin-table'];
 						$k = $fieldName;
 						break 2;
 					}
