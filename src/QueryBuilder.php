@@ -111,13 +111,14 @@ class QueryBuilder
 			'limit' => null,
 		], $options);
 
+		$options['joins'] = $this->normalizeJoins($options['alias'] ?? $table, $options['joins']);
+
 		$whereStr = $this->buildQueryString($where, [
 			'table' => $table,
 			'alias' => $options['alias'],
 			'joins' => $options['joins'],
 		]);
 
-		$options['joins'] = $this->normalizeJoins($options['alias'] ?? $table, $options['joins']);
 		$joinStr = $this->buildJoins($options['joins']);
 
 		$tableModel = $this->parser->getTable($table);
