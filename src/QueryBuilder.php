@@ -155,10 +155,11 @@ class QueryBuilder
 		$fields_from_joins = [];
 		foreach ($options['joins'] as $join) {
 			foreach ($join['fields'] as $fieldIdx => $field) {
+				$tableName = $join['alias'] ?? $join['table'];
 				if (is_numeric($fieldIdx))
-					$fields_from_joins[] = $this->parseColumn($field, ['table' => $join['origin-table']]);
+					$fields_from_joins[] = $this->parseColumn($field, ['table' => $tableName]);
 				else
-					$fields_from_joins[] = $this->parseColumn($fieldIdx, ['table' => $join['origin-table']]) . ' AS ' . $this->parseColumn($field);
+					$fields_from_joins[] = $this->parseColumn($fieldIdx, ['table' => $tableName]) . ' AS ' . $this->parseColumn($field);
 			}
 		}
 
@@ -598,11 +599,12 @@ class QueryBuilder
 			$table = $options['table'];
 
 			foreach ($options['joins'] as $join) {
+				$joinedTable = $join['alias'] ?? $join['table'];
 				foreach ($join['fields'] as $fieldIdx => $field) {
 					$fieldName = is_numeric($fieldIdx) ? $field : $fieldIdx;
 
 					if ($field === $k) {
-						$table = $join['origin-table'];
+						$table = $joinedTable;
 						$k = $fieldName;
 						break 2;
 					}
