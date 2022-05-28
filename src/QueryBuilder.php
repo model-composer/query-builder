@@ -414,24 +414,145 @@ class QueryBuilder
 	}
 
 	/**
+	 * Possible formats for a join:
+	 * - => 'table_name' (string)
+	 * - 'table_name' => ['field1', 'field2']
+	 * - 'table_name' => ['on' => 'this_field', 'fields' => ['field1', 'field2']]
+	 * - 'table_name' => ['on' => ['this_field' => 'other_field'], 'fields' => ['field1', 'field2']]
+	 * - 'table_name' => ['on' => 't1.field = t2.field', 'fields' => ['field1', 'field2']]
+	 * - => ['table' => 'table_name', 'fields' => ['field1', 'field2']]
+	 * - => ['table' => 'table_name', 'on' => ['this_field' => 'other_field'], 'fields' => ['field1', 'field2']]
+	 * - => ['table' => 'table_name', 'on' => 't1.field = t2.field', 'fields' => ['field1', 'field2']]
+	 *
 	 * @param string $table
 	 * @param array $joins
 	 * @return string
+	 * @throws \Exception
 	 */
 	private function buildJoins(string $table, array $joins): string
 	{
 		$join_str = [];
 
-		foreach ($joins as $join) {
-			$join = array_merge([
-				'type' => 'INNER',
-				'origin-table' => $table,
-			], $join);
+		foreach ($joins as $join_key => $join) {
+			if (is_string($join))
+				$join = ['table' => $join];
+			if (!isset($join['table']) and !isset($join['fields']) and !isset($join['on']))
+				$join = ['fields' => $join];
+			if (!is_numeric($join_key) and !isset($join['table']))
+				$join['table'] = $join_key;
+			if (!isset($join['table']))
+				throw new \Exception('Bad join format');
 
-			if (isset($join['full-on']))
-				$on_string = '(' . $join['full-on'] . ')';
-			else
-				$on_string = '`' . $join['origin-table'] . '`.`' . $join['on'] . '` = `' . ($join['alias'] ?? $join['table']) . '`.`' . $join['join-on'] . '`';
+			if (!isset($join['full-on']) or !isset($join['full_on']))
+				throw new \Exception('"full-on" option in joins is deprecated');
+			if (!isset($join['join-on']) or !isset($join['join_field']))
+				throw new \Exception('"join-on"/"join-field" options in joins are deprecated');
+			if (!isset($join['full_fields']))
+				throw new \Exception('"full_fields" option in joins is deprecated');
+
+			if (!isset($join['type']))
+				$join['type'] = 'INNER';
+			if (!isset($join['origin-table']))
+				$join['origin-table'] = $table;
+
+			$tableModel = $this->parser->getTable($join['origin-table']);
+			$joinTableModel = $this->parser->getTable($join['table']);
+
+			if (empty($join['on'])) {
+				$fk_found = null;
+				foreach ($tableModel->columns as $column) {
+					foreach ($column['foreign_keys'] as $fk) {
+						if ($fk['ref_table'] === $join['table']) {
+							if ($fk_found === null)
+								$fk_found = $fk;
+							else // Ambiguous: two FKs for the same table
+								throw new \Exception('Join error: two FKs found in table "' . $table . '" towards table "' . $join['table'] . '".');
+						}
+					}
+				}
+
+				if ($fk_found !== null) {
+					$join['on'] = [
+						$fk_found['column'] => $fk_found['ref_column'],
+					];
+				} else {
+					foreach ($joinTableModel->columns as $column) {
+						foreach ($column['foreign_keys'] as $fk) {
+							if ($fk['ref_table'] === $table) {
+								if ($fk_found === null)
+									$fk_found = $fk;
+								else // Ambiguous: two FKs for the same table
+									throw new \Exception('Join error: two FKs found in table "' . $join['table'] . '" towards table "' . $table . '".');
+							}
+						}
+					}
+
+					if ($fk_found) {
+						$join['on'] = [
+							$fk_found['ref_column'] => $fk_found['column'],
+						];
+					}
+				}
+
+				if ($fk_found === null)
+					throw new \Exception('Join error: no matching FK found between tables "' . $table . '" e "' . $join['table'] . '".');
+			} else if (is_string($join['on'])) {
+				$join['on'] = [$join['on']];
+			}
+
+			$on_string = [];
+			foreach ($join['on'] as $on_key => $on_value) {
+				if (is_string($on_key) and is_string($on_value)) {
+					$on_string[] = $this->parseColumn($on_key, ['table' => $join['origin-table']]) . '=' . $this->parseColumn($on_value, ['table' => $join['alias'] ?? $join['table']]);
+				} elseif (is_string($on_value)) {
+					if (str_contains($on_value, '=')) {
+						// Is a full formed "on" clause
+						$on_string[] = '(' . $on_value . ')';
+					} else {
+						// Is the name of a column, let's search a matching FK
+						if (!isset($tableModel->columns[$on_value]))
+							throw new \Exception('Join error: column "' . $on_value . '" does not exist in table "' . $table . '"!');
+
+						$fk_found = null;
+						foreach ($tableModel->columns[$on_value]['foreign_keys'] as $foreign_key) {
+							if ($foreign_key['ref_table'] === $join['table']) {
+								$fk_found = $foreign_key['ref_column'];
+								break;
+							}
+						}
+
+						if (!$fk_found) {
+							foreach ($joinTableModel->columns as $joinTableColumnName => $joinTableColumn) {
+								foreach ($joinTableColumn['foreign_keys'] as $joinTableFk) {
+									if ($joinTableFk['ref_table'] === $join['origin-table'] and $joinTableFk['ref_column'] === $on_value) {
+										if ($fk_found === null)
+											$fk_found = $joinTableColumnName;
+										else
+											throw new \Exception('Join error: two FKs found in table "' . $join['table'] . '" towards column "' . $on_value . '".');
+									}
+								}
+							}
+						}
+
+						if (!$fk_found)
+							throw new \Exception('Join error: no matching FK found for column "' . $on_value . '".');
+
+						$on_string[] = $this->parseColumn($on_value, ['table' => $join['origin-table']]) . '=' . $this->parseColumn($fk_found, ['table' => $join['alias'] ?? $join['table']]);
+					}
+				} else {
+					throw new \Exception('Bad join "on" format');
+				}
+			}
+
+			$on_string = implode(' AND ', $on_string);
+
+			if (!empty($join['where'])) {
+				if (!is_string($join['where']))
+					$join['where'] = $this->select($join['table'], $join['where'], ['alias' => $join['alias'] ?? null]);
+
+				$on_string .= ' AND (' . $join['where'] . ')';
+			}
+
 			$join_str[] = ' ' . $join['type'] . ' JOIN `' . $join['table'] . '`' . (isset($join['alias']) ? ' AS `' . $join['alias'] . '`' : '') . ' ON ' . $on_string;
 		}
 
