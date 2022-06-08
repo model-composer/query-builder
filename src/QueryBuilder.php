@@ -312,6 +312,8 @@ class QueryBuilder
 				$operator = strtoupper($operator);
 
 				$columnType = null;
+				$tableModelForValidate = $tableModel;
+
 				if ($operator === 'MATCH') {
 					if (!is_array($column)) {
 						if (is_string($column))
@@ -341,6 +343,7 @@ class QueryBuilder
 								if (!isset($joinedTableModel->columns[$realColumn]))
 									throw new \Exception('Column "' . $realColumn . '" does not exist in table "' . $join['table'] . '"');
 
+								$tableModelForValidate = $joinedTableModel;
 								$columnType = $joinedTableModel->columns[$column]['type'];
 								break 2;
 							}
@@ -379,8 +382,8 @@ class QueryBuilder
 							throw new \Exception('"between" expects an array of 2 elements');
 
 						if ($tableModel) {
-							$this->validateColumnValue($tableModel, $column, $value[0]);
-							$this->validateColumnValue($tableModel, $column, $value[1]);
+							$this->validateColumnValue($tableModelForValidate, $column, $value[0]);
+							$this->validateColumnValue($tableModelForValidate, $column, $value[1]);
 						}
 
 						$substr = $parsedColumn . ' BETWEEN ' . $this->parseValue($value[0], $columnType) . ' AND ' . $this->parseValue($value[1], $columnType);
@@ -402,7 +405,7 @@ class QueryBuilder
 							$parsedValues = [];
 							foreach ($value as $v) {
 								if ($tableModel)
-									$this->validateColumnValue($tableModel, $column, $v);
+									$this->validateColumnValue($tableModelForValidate, $column, $v);
 								$parsedValues[] = $this->parseValue($v, $columnType);
 							}
 
@@ -414,7 +417,7 @@ class QueryBuilder
 						break;
 					default:
 						if ($tableModel)
-							$this->validateColumnValue($tableModel, $column, $value);
+							$this->validateColumnValue($tableModelForValidate, $column, $value);
 
 						$substr = $parsedColumn . ' ' . $operator . ' ' . $this->parseValue($value, $columnType);
 						break;
