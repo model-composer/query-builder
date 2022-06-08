@@ -322,9 +322,6 @@ class QueryBuilder
 
 					$parsedColumnArr = [];
 					foreach ($column as $c) {
-						if ($tableModel and !isset($tableModel->columns[$c]))
-							throw new \Exception('Column "' . $c . '" does not exist in table "' . $options['table'] . '"');
-
 						$parsedColumnArr[] = $this->parseColumn($c, [
 							'table' => $options['alias'] ?? $options['table'],
 							'joins' => $options['joins'],
@@ -336,7 +333,21 @@ class QueryBuilder
 					if (!is_string($column))
 						throw new \Exception('Column name must be a string');
 
-					if ($tableModel) {
+					foreach ($options['joins'] as $join) {
+						foreach ($join['fields'] as $fieldIdx => $field) {
+							if ($field === $k) {
+								$joinedTableModel = $this->parser->getTable($join['table']);
+								$realColumn = is_numeric($fieldIdx) ? $field : $fieldIdx;
+								if (!isset($joinedTableModel->columns[$realColumn]))
+									throw new \Exception('Column "' . $realColumn . '" does not exist in table "' . $join['table'] . '"');
+
+								$columnType = $joinedTableModel->columns[$column]['type'];
+								break 2;
+							}
+						}
+					}
+
+					if ($columnType === null and $tableModel) {
 						if (!isset($tableModel->columns[$column]))
 							throw new \Exception('Column "' . $column . '" does not exist in table "' . $options['table'] . '"');
 
