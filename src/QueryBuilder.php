@@ -128,6 +128,7 @@ class QueryBuilder
 			'alias' => null,
 			'joins' => [],
 			'fields' => null,
+			'raw_fields' => false,
 			'group_by' => null,
 			'order_by' => null,
 			'limit' => null,
@@ -150,14 +151,19 @@ class QueryBuilder
 		$fields_str = [];
 		if ($options['fields']) {
 			if (is_array($options['fields'])) {
-				foreach ($options['fields'] as $field) {
-					if (!isset($tableModel->columns[$field]))
-						throw new \Exception('Field "' . $field . '" does not exist');
-					if ($tableModel->columns[$field]['type'] === 'point') {
-						$parsedField = $this->parseColumn($field, ['table' => $options['alias'] ?? $table]);
-						$fields_str[] = 'ST_AsText(' . $parsedField . ') AS ' . $this->parseColumn($field);
-					} else {
-						$fields_str[] = $this->parseColumn($field, ['table' => $options['alias'] ?? $table]);
+				if ($options['raw_fields']) {
+					$fields_str = $options['fields'];
+				} else {
+					foreach ($options['fields'] as $field) {
+						if (!isset($tableModel->columns[$field]))
+							throw new \Exception('Field "' . $field . '" does not exist');
+
+						if ($tableModel->columns[$field]['type'] === 'point') {
+							$parsedField = $this->parseColumn($field, ['table' => $options['alias'] ?? $table]);
+							$fields_str[] = 'ST_AsText(' . $parsedField . ') AS ' . $this->parseColumn($field);
+						} else {
+							$fields_str[] = $this->parseColumn($field, ['table' => $options['alias'] ?? $table]);
+						}
 					}
 				}
 			} elseif (is_string($options['fields'])) {
