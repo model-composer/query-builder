@@ -56,14 +56,20 @@ class QueryBuilder
 	 * @param string $table
 	 * @param array|int $where
 	 * @param array $data
+	 * @param array $options
 	 * @return string|null
+	 * @throws \Exception
 	 */
-	public function update(string $table, array|int $where = [], array $data = []): ?string
+	public function update(string $table, array|int $where = [], array $data = [], array $options = []): ?string
 	{
 		if (empty($data))
 			return null;
 
-		$whereStr = $this->buildQueryString($where, ['table' => $table, 'validate_null' => false]);
+		$options = array_merge([
+			'validate_null' => true,
+		], $options);
+
+		$whereStr = $this->buildQueryString($where, ['table' => $table, 'validate_null' => $options['validate_null']]);
 
 		$dataStr = $this->buildQueryString($data, [
 			'table' => $table,
@@ -81,11 +87,20 @@ class QueryBuilder
 	/**
 	 * @param string $table
 	 * @param array|int $where
+	 * @param array $options
 	 * @return string
+	 * @throws \Exception
 	 */
-	public function delete(string $table, array|int $where = []): string
+	public function delete(string $table, array|int $where = [], array $options = []): string
 	{
-		$whereStr = $this->buildQueryString($where, ['table' => $table, 'validate_null' => false]);
+		$options = array_merge([
+			'validate_null' => true,
+		], $options);
+
+		$whereStr = $this->buildQueryString($where, [
+			'table' => $table,
+			'validate_null' => $options['validate_null'],
+		]);
 
 		$qry = 'DELETE FROM `' . $table . '`';
 		if ($whereStr)
@@ -109,6 +124,7 @@ class QueryBuilder
 			'group_by' => null,
 			'order_by' => null,
 			'limit' => null,
+			'validate_null' => true,
 		], $options);
 
 		$options['joins'] = $this->normalizeJoins($options['alias'] ?? $table, $options['joins']);
@@ -117,7 +133,7 @@ class QueryBuilder
 			'table' => $table,
 			'alias' => $options['alias'],
 			'joins' => $options['joins'],
-			'validate_null' => false,
+			'validate_null' => $options['validate_null'],
 		]);
 
 		$joinStr = $this->buildJoins($options['joins']);
