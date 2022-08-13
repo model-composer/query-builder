@@ -35,6 +35,7 @@ class QueryBuilder
 	{
 		$options = array_merge([
 			'replace' => false,
+			'validate_data' => true,
 		], $options);
 
 		$qry_init = $options['replace'] ? 'REPLACE' : 'INSERT';
@@ -46,6 +47,7 @@ class QueryBuilder
 				'table' => $table,
 				'glue' => ',',
 				'for-select' => false,
+				'validate' => $options['validate_data'],
 			]);
 
 			return $qry_init . ' INTO `' . $table . '` SET ' . $qryStr;
@@ -66,15 +68,20 @@ class QueryBuilder
 			return null;
 
 		$options = array_merge([
-			'validate' => true,
+			'validate_where' => true,
+			'validate_data' => true,
 		], $options);
 
-		$whereStr = $this->buildQueryString($where, ['table' => $table, 'validate' => $options['validate']]);
+		$whereStr = $this->buildQueryString($where, [
+			'table' => $table,
+			'validate' => $options['validate_where'],
+		]);
 
 		$dataStr = $this->buildQueryString($data, [
 			'table' => $table,
 			'glue' => ',',
 			'for-select' => false,
+			'validate' => $options['validate_data'],
 		]);
 
 		$qry = 'UPDATE `' . $table . '` SET ' . $dataStr;
@@ -94,12 +101,12 @@ class QueryBuilder
 	public function delete(string $table, array|int $where = [], array $options = []): string
 	{
 		$options = array_merge([
-			'validate' => true,
+			'validate_where' => true,
 		], $options);
 
 		$whereStr = $this->buildQueryString($where, [
 			'table' => $table,
-			'validate' => $options['validate'],
+			'validate' => $options['validate_where'],
 		]);
 
 		$qry = 'DELETE FROM `' . $table . '`';
@@ -124,7 +131,7 @@ class QueryBuilder
 			'group_by' => null,
 			'order_by' => null,
 			'limit' => null,
-			'validate' => true,
+			'validate_where' => true,
 		], $options);
 
 		$options['joins'] = $this->normalizeJoins($options['alias'] ?? $table, $options['joins']);
@@ -133,7 +140,7 @@ class QueryBuilder
 			'table' => $table,
 			'alias' => $options['alias'],
 			'joins' => $options['joins'],
-			'validate' => $options['validate'],
+			'validate' => $options['validate_where'],
 		]);
 
 		$joinStr = $this->buildJoins($options['joins']);
@@ -680,21 +687,16 @@ class QueryBuilder
 	 * @param Table $table
 	 * @param string $columnName
 	 * @param mixed $v
-	 * @param array $options
 	 * @return void
 	 * @throws \Exception
 	 */
-	private function validateColumnValue(Table $table, string $columnName, mixed $v, array $options = []): void
+	private function validateColumnValue(Table $table, string $columnName, mixed $v): void
 	{
-		$options = array_merge([
-			'validate' => true,
-		], $options);
-
 		if (!array_key_exists($columnName, $table->columns))
 			throw new \Exception('Database column "' . $table->name . '.' . $columnName . '" does not exist!');
 
 		$column = $table->columns[$columnName];
-		if ($v === null and $options['validate']) {
+		if ($v === null) {
 			if (!$column['null'])
 				throw new \Exception('"' . $table->name . '.' . $columnName . '" cannot be null');
 
