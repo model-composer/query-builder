@@ -375,7 +375,7 @@ class QueryBuilder
 									throw new \Exception('Column "' . $realColumn . '" does not exist in table "' . $join['table'] . '"');
 
 								$tableModelForValidate = $joinedTableModel;
-								$columnType = $joinedTableModel->columns[$column]['type'];
+								$columnType = $joinedTableModel->columns[$realColumn]['type'];
 								break 2;
 							}
 						}
