@@ -342,6 +342,7 @@ class QueryBuilder
 			} else {
 				$operator = strtoupper($operator);
 
+				$realColumn = null;
 				$columnType = null;
 				$tableModelForValidate = $tableModel;
 
@@ -394,6 +395,9 @@ class QueryBuilder
 					]);
 				}
 
+				if ($realColumn === null)
+					$realColumn = $column;
+
 				if ($value === null and $options['for-select']) {
 					switch ($operator) {
 						case '=':
@@ -413,8 +417,8 @@ class QueryBuilder
 							throw new \Exception('"between" expects an array of 2 elements');
 
 						if ($tableModel and $options['validate']) {
-							$this->validateColumnValue($tableModelForValidate, $column, $value[0]);
-							$this->validateColumnValue($tableModelForValidate, $column, $value[1]);
+							$this->validateColumnValue($tableModelForValidate, $realColumn, $value[0]);
+							$this->validateColumnValue($tableModelForValidate, $realColumn, $value[1]);
 						}
 
 						$substr = $parsedColumn . ' BETWEEN ' . $this->parseValue($value[0], $columnType) . ' AND ' . $this->parseValue($value[1], $columnType);
@@ -436,7 +440,7 @@ class QueryBuilder
 							$parsedValues = [];
 							foreach ($value as $v) {
 								if ($tableModel and $options['validate'])
-									$this->validateColumnValue($tableModelForValidate, $column, $v);
+									$this->validateColumnValue($tableModelForValidate, $realColumn, $v);
 								$parsedValues[] = $this->parseValue($v, $columnType);
 							}
 
@@ -448,7 +452,7 @@ class QueryBuilder
 						break;
 					default:
 						if ($tableModel and $options['validate'])
-							$this->validateColumnValue($tableModelForValidate, $column, $value);
+							$this->validateColumnValue($tableModelForValidate, $realColumn, $value);
 
 						$substr = $parsedColumn . ' ' . $operator . ' ' . $this->parseValue($value, $columnType);
 						break;
