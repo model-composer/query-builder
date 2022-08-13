@@ -63,7 +63,7 @@ class QueryBuilder
 		if (empty($data))
 			return null;
 
-		$whereStr = $this->buildQueryString($where, ['table' => $table]);
+		$whereStr = $this->buildQueryString($where, ['table' => $table, 'validate_null' => false]);
 
 		$dataStr = $this->buildQueryString($data, [
 			'table' => $table,
@@ -85,7 +85,7 @@ class QueryBuilder
 	 */
 	public function delete(string $table, array|int $where = []): string
 	{
-		$whereStr = $this->buildQueryString($where, ['table' => $table]);
+		$whereStr = $this->buildQueryString($where, ['table' => $table, 'validate_null' => false]);
 
 		$qry = 'DELETE FROM `' . $table . '`';
 		if ($whereStr)
@@ -117,6 +117,7 @@ class QueryBuilder
 			'table' => $table,
 			'alias' => $options['alias'],
 			'joins' => $options['joins'],
+			'validate_null' => false,
 		]);
 
 		$joinStr = $this->buildJoins($options['joins']);
@@ -233,6 +234,7 @@ class QueryBuilder
 			'glue' => 'AND',
 			'for-select' => true,
 			'joins' => [],
+			'validate_null' => true,
 		], $options);
 
 		$tableModel = null;
@@ -382,8 +384,8 @@ class QueryBuilder
 							throw new \Exception('"between" expects an array of 2 elements');
 
 						if ($tableModel) {
-							$this->validateColumnValue($tableModelForValidate, $column, $value[0]);
-							$this->validateColumnValue($tableModelForValidate, $column, $value[1]);
+							$this->validateColumnValue($tableModelForValidate, $column, $value[0], ['validate_null' => $options['validate_null']]);
+							$this->validateColumnValue($tableModelForValidate, $column, $value[1], ['validate_null' => $options['validate_null']]);
 						}
 
 						$substr = $parsedColumn . ' BETWEEN ' . $this->parseValue($value[0], $columnType) . ' AND ' . $this->parseValue($value[1], $columnType);
@@ -405,7 +407,7 @@ class QueryBuilder
 							$parsedValues = [];
 							foreach ($value as $v) {
 								if ($tableModel)
-									$this->validateColumnValue($tableModelForValidate, $column, $v);
+									$this->validateColumnValue($tableModelForValidate, $column, $v, ['validate_null' => $options['validate_null']]);
 								$parsedValues[] = $this->parseValue($v, $columnType);
 							}
 
@@ -417,7 +419,7 @@ class QueryBuilder
 						break;
 					default:
 						if ($tableModel)
-							$this->validateColumnValue($tableModelForValidate, $column, $value);
+							$this->validateColumnValue($tableModelForValidate, $column, $value, ['validate_null' => $options['validate_null']]);
 
 						$substr = $parsedColumn . ' ' . $operator . ' ' . $this->parseValue($value, $columnType);
 						break;
@@ -662,16 +664,21 @@ class QueryBuilder
 	 * @param Table $table
 	 * @param string $columnName
 	 * @param mixed $v
+	 * @param array $options
 	 * @return void
 	 * @throws \Exception
 	 */
-	private function validateColumnValue(Table $table, string $columnName, mixed $v): void
+	private function validateColumnValue(Table $table, string $columnName, mixed $v, array $options = []): void
 	{
+		$options = array_merge([
+			'validate_null' => true,
+		], $options);
+
 		if (!array_key_exists($columnName, $table->columns))
 			throw new \Exception('Database column "' . $table->name . '.' . $columnName . '" does not exist!');
 
 		$column = $table->columns[$columnName];
-		if ($v === null) {
+		if ($v === null and $options['validate_null']) {
 			if (!$column['null'])
 				throw new \Exception('"' . $table->name . '.' . $columnName . '" cannot be null');
 
