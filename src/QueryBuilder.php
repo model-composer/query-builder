@@ -342,6 +342,7 @@ class QueryBuilder
 			} else {
 				$operator = strtoupper($operator);
 
+				$isFromJoin = false;
 				$realColumn = null;
 				$columnType = null;
 				$tableModelForValidate = $tableModel;
@@ -375,6 +376,7 @@ class QueryBuilder
 								if (!isset($joinedTableModel->columns[$realColumn]))
 									throw new \Exception('Column "' . $realColumn . '" does not exist in table "' . $join['table'] . '"');
 
+								$isFromJoin = true;
 								$tableModelForValidate = $joinedTableModel;
 								$columnType = $joinedTableModel->columns[$realColumn]['type'];
 								break 2;
@@ -416,6 +418,9 @@ class QueryBuilder
 						if (!is_array($value) or count($value) !== 2)
 							throw new \Exception('"between" expects an array of 2 elements');
 
+						if ($value[0] === null or $value[1] === null)
+							throw new \Exception('"between" cannot accept null values');
+
 						if ($tableModel and $options['validate']) {
 							$this->validateColumnValue($tableModelForValidate, $realColumn, $value[0]);
 							$this->validateColumnValue($tableModelForValidate, $realColumn, $value[1]);
@@ -439,7 +444,7 @@ class QueryBuilder
 						} else {
 							$parsedValues = [];
 							foreach ($value as $v) {
-								if ($tableModel and $options['validate'])
+								if ($tableModel and $options['validate'] and ($v !== null or !$isFromJoin))
 									$this->validateColumnValue($tableModelForValidate, $realColumn, $v);
 								$parsedValues[] = $this->parseValue($v, $columnType);
 							}
@@ -451,7 +456,7 @@ class QueryBuilder
 						$substr = 'MATCH(' . $k . ') AGAINST(' . $this->parseValue($value) . ')';
 						break;
 					default:
-						if ($tableModel and $options['validate'])
+						if ($tableModel and $options['validate'] and ($value !== null or !$isFromJoin))
 							$this->validateColumnValue($tableModelForValidate, $realColumn, $value);
 
 						$substr = $parsedColumn . ' ' . $operator . ' ' . $this->parseValue($value, $columnType);
