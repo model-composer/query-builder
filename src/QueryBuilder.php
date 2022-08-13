@@ -66,10 +66,10 @@ class QueryBuilder
 			return null;
 
 		$options = array_merge([
-			'validate_null' => true,
+			'validate' => true,
 		], $options);
 
-		$whereStr = $this->buildQueryString($where, ['table' => $table, 'validate_null' => $options['validate_null']]);
+		$whereStr = $this->buildQueryString($where, ['table' => $table, 'validate' => $options['validate']]);
 
 		$dataStr = $this->buildQueryString($data, [
 			'table' => $table,
@@ -94,12 +94,12 @@ class QueryBuilder
 	public function delete(string $table, array|int $where = [], array $options = []): string
 	{
 		$options = array_merge([
-			'validate_null' => true,
+			'validate' => true,
 		], $options);
 
 		$whereStr = $this->buildQueryString($where, [
 			'table' => $table,
-			'validate_null' => $options['validate_null'],
+			'validate' => $options['validate'],
 		]);
 
 		$qry = 'DELETE FROM `' . $table . '`';
@@ -124,7 +124,7 @@ class QueryBuilder
 			'group_by' => null,
 			'order_by' => null,
 			'limit' => null,
-			'validate_null' => true,
+			'validate' => true,
 		], $options);
 
 		$options['joins'] = $this->normalizeJoins($options['alias'] ?? $table, $options['joins']);
@@ -133,7 +133,7 @@ class QueryBuilder
 			'table' => $table,
 			'alias' => $options['alias'],
 			'joins' => $options['joins'],
-			'validate_null' => $options['validate_null'],
+			'validate' => $options['validate'],
 		]);
 
 		$joinStr = $this->buildJoins($options['joins']);
@@ -250,7 +250,7 @@ class QueryBuilder
 			'glue' => 'AND',
 			'for-select' => true,
 			'joins' => [],
-			'validate_null' => true,
+			'validate' => true,
 		], $options);
 
 		$tableModel = null;
@@ -399,9 +399,9 @@ class QueryBuilder
 						if (!is_array($value) or count($value) !== 2)
 							throw new \Exception('"between" expects an array of 2 elements');
 
-						if ($tableModel) {
-							$this->validateColumnValue($tableModelForValidate, $column, $value[0], ['validate_null' => $options['validate_null']]);
-							$this->validateColumnValue($tableModelForValidate, $column, $value[1], ['validate_null' => $options['validate_null']]);
+						if ($tableModel and $options['validate']) {
+							$this->validateColumnValue($tableModelForValidate, $column, $value[0]);
+							$this->validateColumnValue($tableModelForValidate, $column, $value[1]);
 						}
 
 						$substr = $parsedColumn . ' BETWEEN ' . $this->parseValue($value[0], $columnType) . ' AND ' . $this->parseValue($value[1], $columnType);
@@ -422,8 +422,8 @@ class QueryBuilder
 						} else {
 							$parsedValues = [];
 							foreach ($value as $v) {
-								if ($tableModel)
-									$this->validateColumnValue($tableModelForValidate, $column, $v, ['validate_null' => $options['validate_null']]);
+								if ($tableModel and $options['validate'])
+									$this->validateColumnValue($tableModelForValidate, $column, $v);
 								$parsedValues[] = $this->parseValue($v, $columnType);
 							}
 
@@ -434,8 +434,8 @@ class QueryBuilder
 						$substr = 'MATCH(' . $k . ') AGAINST(' . $this->parseValue($value) . ')';
 						break;
 					default:
-						if ($tableModel)
-							$this->validateColumnValue($tableModelForValidate, $column, $value, ['validate_null' => $options['validate_null']]);
+						if ($tableModel and $options['validate'])
+							$this->validateColumnValue($tableModelForValidate, $column, $value);
 
 						$substr = $parsedColumn . ' ' . $operator . ' ' . $this->parseValue($value, $columnType);
 						break;
@@ -687,14 +687,14 @@ class QueryBuilder
 	private function validateColumnValue(Table $table, string $columnName, mixed $v, array $options = []): void
 	{
 		$options = array_merge([
-			'validate_null' => true,
+			'validate' => true,
 		], $options);
 
 		if (!array_key_exists($columnName, $table->columns))
 			throw new \Exception('Database column "' . $table->name . '.' . $columnName . '" does not exist!');
 
 		$column = $table->columns[$columnName];
-		if ($v === null and $options['validate_null']) {
+		if ($v === null and $options['validate']) {
 			if (!$column['null'])
 				throw new \Exception('"' . $table->name . '.' . $columnName . '" cannot be null');
 
