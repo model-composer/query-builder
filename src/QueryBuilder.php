@@ -368,7 +368,7 @@ class QueryBuilder
 
 					foreach ($options['joins'] as $join) {
 						foreach ($join['fields'] as $fieldIdx => $field) {
-							if ($field === $k) {
+							if ($field === $column) {
 								$joinedTableModel = $this->parser->getTable($join['table']);
 								$realColumn = is_numeric($fieldIdx) ? $field : $fieldIdx;
 								if (!isset($joinedTableModel->columns[$realColumn]))
