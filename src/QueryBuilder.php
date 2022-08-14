@@ -159,10 +159,10 @@ class QueryBuilder
 							throw new \Exception('Field "' . $field . '" does not exist');
 
 						if ($tableModel->columns[$field]['type'] === 'point') {
-							$parsedField = $this->parseColumn($field, ['table' => $options['alias'] ?? $table]);
+							$parsedField = $this->parseColumn($field, $options['alias'] ?? $table);
 							$fields_str[] = 'ST_AsText(' . $parsedField . ') AS ' . $this->parseColumn($field);
 						} else {
-							$fields_str[] = $this->parseColumn($field, ['table' => $options['alias'] ?? $table]);
+							$fields_str[] = $this->parseColumn($field, $options['alias'] ?? $table);
 						}
 					}
 				}
@@ -175,7 +175,7 @@ class QueryBuilder
 			$fields_str[] = '*';
 			foreach ($tableModel->columns as $field => $fieldOpt) {
 				if ($fieldOpt['type'] === 'point') {
-					$parsedField = $this->parseColumn($field, ['table' => $options['alias'] ?? $table]);
+					$parsedField = $this->parseColumn($field, $options['alias'] ?? $table);
 					$fields_str[] = 'ST_AsText(' . $parsedField . ') AS ' . $this->parseColumn($field);
 				}
 			}
@@ -188,9 +188,9 @@ class QueryBuilder
 			foreach ($join['fields'] as $fieldIdx => $field) {
 				$tableName = $join['alias'] ?? $join['table'];
 				if (is_numeric($fieldIdx))
-					$fields_from_joins[] = $this->parseColumn($field, ['table' => $tableName]);
+					$fields_from_joins[] = $this->parseColumn($field, $tableName);
 				else
-					$fields_from_joins[] = $this->parseColumn($fieldIdx, ['table' => $tableName]) . ' AS ' . $this->parseColumn($field);
+					$fields_from_joins[] = $this->parseColumn($fieldIdx, $tableName) . ' AS ' . $this->parseColumn($field);
 			}
 		}
 
@@ -208,12 +208,8 @@ class QueryBuilder
 			if (!is_array($options['group_by']))
 				$options['group_by'] = [$options['group_by']];
 
-			foreach ($options['group_by'] as &$field) {
-				$field = $this->parseColumn($field, [
-					'table' => $options['alias'] ?? $table,
-					'joins' => $options['joins'],
-				]);
-			}
+			foreach ($options['group_by'] as &$field)
+				[$_1, $_2, $field, $_3] = $this->parseInputColumn($field, $table, $options['joins'], $options['alias'] ?? null);
 			unset($field);
 
 			$qry .= ' GROUP BY ' . implode(',', $options['group_by']);
@@ -227,10 +223,7 @@ class QueryBuilder
 					if (!in_array(strtoupper($sortingField[1]), ['ASC', 'DESC']))
 						throw new \Exception('Bad "order by" direction');
 
-					$sortingField[0] = $this->parseColumn($sortingField[0], [
-						'table' => $options['alias'] ?? $table,
-						'joins' => $options['joins'],
-					]);
+					[$_1, $_2, $sortingField[0], $_3] = $this->parseInputColumn($sortingField[0], $table, $options['joins'], $options['alias'] ?? null);
 					$sortingField = implode(' ', $sortingField);
 				}
 				unset($sortingField);
@@ -342,125 +335,96 @@ class QueryBuilder
 			} else {
 				$operator = strtoupper($operator);
 
-				$isFromJoin = false;
-				$realColumn = null;
-				$columnType = null;
-				$tableModelForValidate = $tableModel;
-
 				if ($operator === 'MATCH') {
 					if (!is_array($column)) {
 						if (is_string($column))
 							$column = [$column];
 						else
-							throw new \Exception('Column name must be a string');
+							throw new \Exception('Column name must be a string or an array, with MATCH operator');
 					}
 
 					$parsedColumnArr = [];
 					foreach ($column as $c) {
-						$parsedColumnArr[] = $this->parseColumn($c, [
-							'table' => $options['alias'] ?? $options['table'],
-							'joins' => $options['joins'],
-						]);
+						[$_1, $_2, $parsedColumn, $_3] = $this->parseInputColumn($c, $options['table'], $options['joins'], $options['alias'] ?? null);
+						$parsedColumnArr[] = $parsedColumn;
 					}
 
-					$parsedColumn = implode(',', $parsedColumnArr);
+					$substr = 'MATCH(' . implode(',', $parsedColumnArr) . ') AGAINST(' . $this->parseValue($value) . ')';
 				} else {
 					if (!is_string($column))
 						throw new \Exception('Column name must be a string');
 
-					foreach ($options['joins'] as $join) {
-						foreach ($join['fields'] as $fieldIdx => $field) {
-							if ($field === $column) {
-								$joinedTableModel = $this->parser->getTable($join['table']);
-								$realColumn = is_numeric($fieldIdx) ? $field : $fieldIdx;
-								if (!isset($joinedTableModel->columns[$realColumn]))
-									throw new \Exception('Column "' . $realColumn . '" does not exist in table "' . $join['table'] . '"');
+					[$realTable, $realColumn, $parsedColumn, $isFromJoin] = $this->parseInputColumn($column, $options['table'], $options['joins'], $options['alias'] ?? null);
+					if ($realTable) {
+						$realTableModel = $this->parser->getTable($realTable);
+						if (!isset($realTableModel->columns[$realColumn]))
+							throw new \Exception('Column "' . $realColumn . '" does not exist in table "' . $realTable . '"');
 
-								$isFromJoin = true;
-								$tableModelForValidate = $joinedTableModel;
-								$columnType = $joinedTableModel->columns[$realColumn]['type'];
-								break 2;
-							}
+						$columnType = $realTableModel->columns[$realColumn]['type'];
+					} else {
+						$realTableModel = null;
+						$columnType = null;
+					}
+
+					if ($value === null and $options['for-select']) {
+						switch ($operator) {
+							case '=':
+								$operator = 'IS';
+								break;
+							case '!=':
+								$operator = 'IS NOT';
+								break;
+							default:
+								throw new \Exception('Query build error: bad operator for null value');
 						}
 					}
 
-					if ($columnType === null and $tableModel) {
-						if (!isset($tableModel->columns[$column]))
-							throw new \Exception('Column "' . $column . '" does not exist in table "' . $options['table'] . '"');
-
-						$columnType = $tableModel->columns[$column]['type'];
-					}
-
-					$parsedColumn = $this->parseColumn($column, [
-						'table' => $options['alias'] ?? $options['table'],
-						'joins' => $options['joins'],
-					]);
-				}
-
-				if ($realColumn === null)
-					$realColumn = $column;
-
-				if ($value === null and $options['for-select']) {
 					switch ($operator) {
-						case '=':
-							$operator = 'IS';
+						case 'BETWEEN':
+							if (!is_array($value) or count($value) !== 2)
+								throw new \Exception('"between" expects an array of 2 elements');
+
+							if ($value[0] === null or $value[1] === null)
+								throw new \Exception('"between" cannot accept null values');
+
+							if ($realTableModel and $options['validate']) {
+								$this->validateColumnValue($realTableModel, $realColumn, $value[0]);
+								$this->validateColumnValue($realTableModel, $realColumn, $value[1]);
+							}
+
+							$substr = $parsedColumn . ' BETWEEN ' . $this->parseValue($value[0], $columnType) . ' AND ' . $this->parseValue($value[1], $columnType);
 							break;
-						case '!=':
-							$operator = 'IS NOT';
+						case 'IN':
+						case 'NOT IN':
+							if (!is_array($value))
+								throw new \Exception('"in" or "not in" expect an array');
+
+							if (count($value) === 0) {
+								switch ($operator) {
+									case 'IN': // If "IN" with an empty array is requested, I can\'t execute the query, so I will put an impossible condition
+										$substr = '(1=2)';
+										break;
+									case 'NOT IN':
+										continue 3;
+								}
+							} else {
+								$parsedValues = [];
+								foreach ($value as $v) {
+									if ($realTableModel and $options['validate'] and ($v !== null or !$isFromJoin))
+										$this->validateColumnValue($realTableModel, $realColumn, $v);
+									$parsedValues[] = $this->parseValue($v, $columnType);
+								}
+
+								$substr = $parsedColumn . ' ' . $operator . ' (' . implode(',', $parsedValues) . ')';
+							}
 							break;
 						default:
-							throw new \Exception('Query build error: bad operator for null value');
+							if ($realTableModel and $options['validate'] and ($value !== null or !$isFromJoin))
+								$this->validateColumnValue($realTableModel, $realColumn, $value);
+
+							$substr = $parsedColumn . ' ' . $operator . ' ' . $this->parseValue($value, $columnType);
+							break;
 					}
-				}
-
-				switch ($operator) {
-					case 'BETWEEN':
-						if (!is_array($value) or count($value) !== 2)
-							throw new \Exception('"between" expects an array of 2 elements');
-
-						if ($value[0] === null or $value[1] === null)
-							throw new \Exception('"between" cannot accept null values');
-
-						if ($tableModel and $options['validate']) {
-							$this->validateColumnValue($tableModelForValidate, $realColumn, $value[0]);
-							$this->validateColumnValue($tableModelForValidate, $realColumn, $value[1]);
-						}
-
-						$substr = $parsedColumn . ' BETWEEN ' . $this->parseValue($value[0], $columnType) . ' AND ' . $this->parseValue($value[1], $columnType);
-						break;
-					case 'IN':
-					case 'NOT IN':
-						if (!is_array($value))
-							throw new \Exception('"in" or "not in" expect an array');
-
-						if (count($value) === 0) {
-							switch ($operator) {
-								case 'IN': // If "IN" with an empty array is requested, I can\'t execute the query, so I will put an impossible condition
-									$substr = '(1=2)';
-									break;
-								case 'NOT IN':
-									continue 3;
-							}
-						} else {
-							$parsedValues = [];
-							foreach ($value as $v) {
-								if ($tableModel and $options['validate'] and ($v !== null or !$isFromJoin))
-									$this->validateColumnValue($tableModelForValidate, $realColumn, $v);
-								$parsedValues[] = $this->parseValue($v, $columnType);
-							}
-
-							$substr = $parsedColumn . ' ' . $operator . ' (' . implode(',', $parsedValues) . ')';
-						}
-						break;
-					case 'MATCH':
-						$substr = 'MATCH(' . $k . ') AGAINST(' . $this->parseValue($value) . ')';
-						break;
-					default:
-						if ($tableModel and $options['validate'] and ($value !== null or !$isFromJoin))
-							$this->validateColumnValue($tableModelForValidate, $realColumn, $value);
-
-						$substr = $parsedColumn . ' ' . $operator . ' ' . $this->parseValue($value, $columnType);
-						break;
 				}
 
 				$str[] = $substr;
@@ -578,7 +542,7 @@ class QueryBuilder
 			$on_string = [];
 			foreach ($join['on'] as $on_key => $on_value) {
 				if (is_string($on_key) and is_string($on_value)) {
-					$on_string[] = $this->parseColumn($on_key, ['table' => $join['origin-table']]) . '=' . $this->parseColumn($on_value, ['table' => $join['alias'] ?? $join['table']]);
+					$on_string[] = $this->parseColumn($on_key, $join['origin-table']) . '=' . $this->parseColumn($on_value, $join['alias'] ?? $join['table']);
 				} elseif (is_string($on_value)) {
 					if (str_contains($on_value, '=')) {
 						// Is a full formed "on" clause
@@ -612,7 +576,7 @@ class QueryBuilder
 						if (!$fk_found)
 							throw new \Exception('Join error: no matching FK found for column "' . $on_value . '".');
 
-						$on_string[] = $this->parseColumn($on_value, ['table' => $join['origin-table']]) . '=' . $this->parseColumn($fk_found, ['table' => $join['alias'] ?? $join['table']]);
+						$on_string[] = $this->parseColumn($on_value, $join['origin-table']) . '=' . $this->parseColumn($fk_found, $join['alias'] ?? $join['table']);
 					}
 				} else {
 					throw new \Exception('Bad join "on" format');
@@ -635,38 +599,72 @@ class QueryBuilder
 	}
 
 	/**
-	 * @param string $k
-	 * @param array $options
-	 * @return string
+	 * @param string $column
+	 * @param string $table
+	 * @param array $joins
+	 * @param string|null $alias
+	 * @return array
 	 */
-	public function parseColumn(string $k, array $options = []): string
+	private function parseInputColumn(string $column, string $table, array $joins, ?string $alias = null): array
 	{
-		$k = preg_replace('/[^a-zA-Z0-9_.,()!=<> -]+/', '', $k);
-		if (str_contains($k, '.')) {
-			$k = explode('.', $k);
-			return '`' . $k[0] . '`.`' . $k[1] . '`';
+		if (str_contains($column, '.')) {
+			$column = explode('.', $column);
+			if (count($column) !== 2)
+				throw new \Exception('Wrong column name format');
+
+			$parsed = $this->parseColumn($column[1], $column[0]);
+
+			return [
+				null,
+				$column[1],
+				$parsed,
+				false,
+			];
 		} else {
-			$options = array_merge([
-				'table' => null,
-				'joins' => [],
-			], $options);
+			$alias ??= $table;
+			$isFromJoin = false;
 
-			$table = $options['table'];
-
-			foreach ($options['joins'] as $join) {
-				$joinedTable = $join['alias'] ?? $join['table'];
+			foreach ($joins as $join) {
 				foreach ($join['fields'] as $fieldIdx => $field) {
 					$fieldName = is_numeric($fieldIdx) ? $field : $fieldIdx;
 
-					if ($field === $k) {
-						$table = $joinedTable;
-						$k = $fieldName;
+					if ($field === $column) {
+						$isFromJoin = true;
+						$table = $join['table'];
+						$alias = $join['alias'] ?? $join['table'];
+						$column = $fieldName;
 						break 2;
 					}
 				}
 			}
 
-			return $table ? '`' . $table . '`.`' . $k . '`' : '`' . $k . '`';
+			$parsed = $this->parseColumn($column, $alias);
+
+			return [
+				$table,
+				$column,
+				$parsed,
+				$isFromJoin,
+			];
+		}
+	}
+
+	/**
+	 * @param string $column
+	 * @param string|null $table
+	 * @return string
+	 */
+	public function parseColumn(string $column, ?string $table = null): string
+	{
+		$column = preg_replace('/[^a-zA-Z0-9_.,()!=<> -]+/', '', $column);
+		if (str_contains($column, '.')) {
+			$column = explode('.', $column);
+			if (count($column) !== 2)
+				throw new \Exception('Wrong column name format');
+
+			return '`' . $column[0] . '`.`' . $column[1] . '`';
+		} else {
+			return $table ? '`' . $table . '`.`' . $column . '`' : '`' . $column . '`';
 		}
 	}
 
