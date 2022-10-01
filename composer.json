@@ -13,6 +13,6 @@
     },
     "require": {
         "ext-pdo": "*",
-        "model/db-parser": "^0.1.4"
+        "model/db-parser": "^0.2.0"
     }
 }
