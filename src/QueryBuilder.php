@@ -35,23 +35,56 @@ class QueryBuilder
 	{
 		$options = array_merge([
 			'replace' => false,
+			'bulk' => false,
 			'validate_data' => true,
 		], $options);
 
-		$qry_init = $options['replace'] ? 'REPLACE' : 'INSERT';
+		$keys = null;
+		$qry_rows = [];
 
-		if (empty($data)) {
-			return $qry_init . ' INTO `' . $table . '`() VALUES()';
-		} else {
-			$qryStr = $this->buildQueryString($data, [
-				'table' => $table,
-				'glue' => ',',
-				'for-select' => false,
-				'validate' => $options['validate_data'],
-			]);
+		$rows = $options['bulk'] ? $data : [$data];
+		foreach ($rows as $row) {
+			$rowKeys = [];
 
-			return $qry_init . ' INTO `' . $table . '` SET ' . $qryStr;
+			if ($row === []) {
+				$qry_rows[] = '()';
+			} else {
+				$values = [];
+				foreach ($row as $k => $v) {
+					[$realTable, $realColumn, $parsedColumn, $isFromJoin] = $this->parseInputColumn($k, $table);
+					$rowKeys[] = $parsedColumn;
+
+					if ($realTable) {
+						$realTableModel = $this->parser->getTable($realTable);
+						if (!isset($realTableModel->columns[$realColumn]))
+							throw new \Exception('Column "' . $realColumn . '" does not exist in table "' . $realTable . '"');
+
+						$columnType = $realTableModel->columns[$realColumn]['type'];
+					} else {
+						$realTableModel = null;
+						$columnType = null;
+					}
+
+					if ($realTableModel and $options['validate_data'])
+						$this->validateColumnValue($realTableModel, $realColumn, $v);
+
+					$values[] = $this->parseValue($v, $columnType);
+				}
+
+				$qry_rows[] = '(' . implode(',', $values) . ')';
+			}
+
+			if ($keys === null)
+				$keys = $rowKeys;
+			elseif (json_encode($keys) !== json_encode($rowKeys))
+				throw new \Exception('All rows must have identical rows in a bulk insert');
 		}
+
+		$qry = null;
+		if (count($qry_rows) > 0)
+			$qry = ($options['replace'] ? 'REPLACE' : 'INSERT') . ' INTO `' . $table . '`(' . implode(',', $keys) . ') VALUES' . implode(',', $qry_rows);
+
+		return $qry;
 	}
 
 	/**
@@ -605,7 +638,7 @@ class QueryBuilder
 	 * @param string|null $alias
 	 * @return array
 	 */
-	private function parseInputColumn(string $column, string $table, array $joins, ?string $alias = null): array
+	private function parseInputColumn(string $column, string $table, array $joins = [], ?string $alias = null): array
 	{
 		if (str_contains($column, '.')) {
 			$column = explode('.', $column);
