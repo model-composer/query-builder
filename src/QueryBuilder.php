@@ -161,6 +161,11 @@ class QueryBuilder
 			'alias' => null,
 			'joins' => [],
 			'fields' => null,
+			'min' => [],
+			'max' => [],
+			'sum' => [],
+			'avg' => [],
+			'count' => [],
 			'raw_fields' => false,
 			'group_by' => null,
 			'order_by' => null,
@@ -206,11 +211,42 @@ class QueryBuilder
 				throw new \Exception('Error while building select query, "fields" must be either an array or a string');
 			}
 		} else {
-			$fields_str[] = '*';
+			$fields_str[] = ($options['alias'] ?? $table) . '.*';
 			foreach ($tableModel->columns as $field => $fieldOpt) {
 				if ($fieldOpt['type'] === 'point') {
 					$parsedField = $this->parseColumn($field, $options['alias'] ?? $table);
 					$fields_str[] = 'ST_AsText(' . $parsedField . ') AS ' . $this->parseColumn($field);
+				}
+			}
+		}
+
+		$aggregations = [
+			'min',
+			'max',
+			'sum',
+			'avg',
+			'count',
+		];
+
+		foreach ($aggregations as $f) {
+			if ($options[$f]) {
+				if (!is_array($options[$f]))
+					$options[$f] = [$options[$f]];
+
+				foreach ($options[$f] as $k => $v) {
+					$field = is_numeric($k) ? $v : $k;
+
+					if (str_contains($field, '.')) {
+						$field = explode('.', $field);
+						$referenceTable = $field[0];
+						$field = $field[1];
+						$alias = is_numeric($k) ? $field : $v;
+					} else {
+						$referenceTable = $options['alias'] ?? $table;
+						$alias = $v;
+					}
+
+					$fields_str[] = strtoupper($f) . '(' . $this->parseColumn($field, $referenceTable) . ') AS ' . $alias;
 				}
 			}
 		}
