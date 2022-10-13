@@ -165,6 +165,7 @@ class QueryBuilder
 			'group_by' => null,
 			'order_by' => null,
 			'limit' => null,
+			'offset' => null,
 			'validate_where' => true,
 		], $options);
 
@@ -267,8 +268,22 @@ class QueryBuilder
 			}
 		}
 
-		if ($options['limit'] !== null)
-			$qry .= ' LIMIT ' . $options['limit'];
+		if ($options['limit'] !== null) {
+			if (!is_numeric($options['limit']))
+				throw new \Exception('Non-numeric limit is deprecated');
+
+			$limitQry = $options['limit'];
+			if ($options['offset'] !== null) {
+				if (!is_numeric($options['offset']))
+					throw new \Exception('Offset must be numeric');
+
+				$limitQry = $options['offset'] . ',' . $limitQry;
+			}
+
+			$qry .= ' LIMIT ' . $limitQry;
+		} elseif ($options['offset'] !== null) {
+			throw new \Exception('Offset option must have a limit set as well');
+		}
 
 		return $qry;
 	}
