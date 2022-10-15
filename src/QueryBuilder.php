@@ -678,8 +678,12 @@ class QueryBuilder
 			$on_string = implode(' AND ', $on_string);
 
 			if (!empty($join['where'])) {
-				if (!is_string($join['where']))
-					$join['where'] = $this->select($join['table'], $join['where'], ['alias' => $join['alias'] ?? null]);
+				if (!is_string($join['where'])) {
+					$join['where'] = $this->buildQueryString($join['where'], [
+						'table' => $join['table'],
+						'alias' => $join['alias'] ?? null,
+					]);
+				}
 
 				$on_string .= ' AND (' . $join['where'] . ')';
 			}
