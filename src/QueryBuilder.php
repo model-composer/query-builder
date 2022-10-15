@@ -193,15 +193,23 @@ class QueryBuilder
 				if ($options['raw_fields']) {
 					$fields_str = $options['fields'];
 				} else {
-					foreach ($options['fields'] as $field) {
+					foreach ($options['fields'] as $k => $v) {
+						if (is_numeric($k)) {
+							$field = $v;
+							$alias = null;
+						} else {
+							$field = $k;
+							$alias = $v;
+						}
+
 						if (!isset($tableModel->columns[$field]))
 							throw new \Exception('Field "' . $field . '" does not exist');
 
 						if ($tableModel->columns[$field]['type'] === 'point') {
 							$parsedField = $this->parseColumn($field, $options['alias'] ?? $table);
-							$fields_str[] = 'ST_AsText(' . $parsedField . ') AS ' . $this->parseColumn($field);
+							$fields_str[] = 'ST_AsText(' . $parsedField . ') AS ' . $this->parseColumn($alias ?? $field);
 						} else {
-							$fields_str[] = $this->parseColumn($field, $options['alias'] ?? $table);
+							$fields_str[] = $this->parseColumn($field, $options['alias'] ?? $table) . ($alias ? ' AS ' . $this->parseColumn($alias) : '');
 						}
 					}
 				}
