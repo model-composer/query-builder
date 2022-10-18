@@ -636,7 +636,7 @@ class QueryBuilder
 				if (is_string($on_key) and is_string($on_value)) {
 					$on_string[] = $this->parseColumn($on_key, $join['origin-table']) . '=' . $this->parseColumn($on_value, $join['alias'] ?? $join['table']);
 				} elseif (is_string($on_value)) {
-					if (str_contains($on_value, '=')) {
+					if (str_contains($on_value, '=') or str_contains($on_value, ' LIKE ')) {
 						// Is a full formed "on" clause
 						$on_string[] = '(' . $on_value . ')';
 					} else {
