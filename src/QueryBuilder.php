@@ -542,7 +542,7 @@ class QueryBuilder
 	 * @return array
 	 * @throws \Exception
 	 */
-	private function normalizeJoins(string $table, array $joins): array
+	public function normalizeJoins(string $table, array $joins): array
 	{
 		$normalized = [];
 
