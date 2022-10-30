@@ -168,6 +168,7 @@ class QueryBuilder
 			'count' => [],
 			'raw_fields' => false,
 			'group_by' => null,
+			'having' => [],
 			'order_by' => null,
 			'limit' => null,
 			'offset' => null,
@@ -291,6 +292,14 @@ class QueryBuilder
 			unset($field);
 
 			$qry .= ' GROUP BY ' . implode(',', $options['group_by']);
+			if ($options['having']) {
+				$qry .= ' HAVING ' . $this->buildQueryString($options['having'], [
+						'table' => $table,
+						'alias' => $options['alias'] ?? null,
+						'joins' => $options['joins'],
+						'validate' => false,
+					]);
+			}
 		}
 
 		if ($options['order_by'] !== null) {
