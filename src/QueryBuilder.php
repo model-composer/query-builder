@@ -283,7 +283,7 @@ class QueryBuilder
 		if ($whereStr)
 			$qry .= ' WHERE ' . $whereStr;
 
-		if ($options['group_by'] !== null) {
+		if ($options['group_by']) {
 			if (!is_array($options['group_by']))
 				$options['group_by'] = [$options['group_by']];
 
@@ -302,7 +302,7 @@ class QueryBuilder
 			}
 		}
 
-		if ($options['order_by'] !== null) {
+		if ($options['order_by']) {
 			if (is_array($options['order_by'])) {
 				foreach ($options['order_by'] as &$sortingField) {
 					if (!is_array($sortingField))
