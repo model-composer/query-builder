@@ -186,8 +186,6 @@ class QueryBuilder
 
 		$joinStr = $this->buildJoins($options['joins']);
 
-		$tableModel = $this->parser->getTable($table);
-
 		$fields_str = [];
 		if ($options['fields']) {
 			if (is_array($options['fields'])) {
@@ -195,23 +193,19 @@ class QueryBuilder
 					$fields_str = $options['fields'];
 				} else {
 					foreach ($options['fields'] as $k => $v) {
-						if (is_numeric($k)) {
-							$field = $v;
-							$alias = null;
-						} else {
-							$field = $k;
-							$alias = $v;
-						}
+						$field = is_numeric($k) ? $v : $k;
+						$alias = is_numeric($k) ? null : $v;
 
-						if (!isset($tableModel->columns[$field]))
+						[$realTable, $realColumn, $parsedColumn, $isFromJoin] = $this->parseInputColumn($v, $table, $options['joins'], $options['alias'] ?? null);
+						$realTableModel = $this->parser->getTable($realTable);
+
+						if (!isset($realTableModel->columns[$realColumn]))
 							throw new \Exception('Field "' . $field . '" does not exist');
 
-						if ($tableModel->columns[$field]['type'] === 'point') {
-							$parsedField = $this->parseColumn($field, $options['alias'] ?? $table);
-							$fields_str[] = 'ST_AsText(' . $parsedField . ') AS ' . $this->parseColumn($alias ?? $field);
-						} else {
-							$fields_str[] = $this->parseColumn($field, $options['alias'] ?? $table) . ($alias ? ' AS ' . $this->parseColumn($alias) : '');
-						}
+						if ($realTableModel->columns[$realColumn]['type'] === 'point')
+							$fields_str[] = 'ST_AsText(' . $parsedColumn . ') AS ' . $this->parseColumn($alias ?? $field);
+						else
+							$fields_str[] = $parsedColumn . ($alias ? ' AS ' . $this->parseColumn($alias) : '');
 					}
 				}
 			} elseif (is_string($options['fields'])) {
@@ -220,6 +214,8 @@ class QueryBuilder
 				throw new \Exception('Error while building select query, "fields" must be either an array or a string');
 			}
 		} else {
+			$tableModel = $this->parser->getTable($table);
+
 			$fields_str[] = ($options['alias'] ?? $table) . '.*';
 			foreach ($tableModel->columns as $field => $fieldOpt) {
 				if ($fieldOpt['type'] === 'point') {
@@ -262,21 +258,23 @@ class QueryBuilder
 
 		$fields_str = implode(',', $fields_str);
 
-		$fields_from_joins = [];
-		foreach ($options['joins'] as $join) {
-			foreach ($join['fields'] as $fieldIdx => $field) {
-				$tableName = $join['alias'] ?? $join['table'];
-				if (is_numeric($fieldIdx))
-					$fields_from_joins[] = $this->parseColumn($field, $tableName);
-				else
-					$fields_from_joins[] = $this->parseColumn($fieldIdx, $tableName) . ' AS ' . $this->parseColumn($field);
+		if (!$options['fields']) {
+			$fields_from_joins = [];
+			foreach ($options['joins'] as $join) {
+				foreach ($join['fields'] as $fieldIdx => $field) {
+					$tableName = $join['alias'] ?? $join['table'];
+					if (is_numeric($fieldIdx))
+						$fields_from_joins[] = $this->parseColumn($field, $tableName);
+					else
+						$fields_from_joins[] = $this->parseColumn($fieldIdx, $tableName) . ' AS ' . $this->parseColumn($field);
+				}
 			}
-		}
 
-		if ($fields_from_joins) {
-			if (str_starts_with($fields_str, '*'))
-				$fields_str = '`' . $table . '`.' . $fields_str;
-			$fields_str .= ',' . implode(',', $fields_from_joins);
+			if ($fields_from_joins) {
+				if (str_starts_with($fields_str, '*'))
+					$fields_str = '`' . $table . '`.' . $fields_str;
+				$fields_str .= ',' . implode(',', $fields_from_joins);
+			}
 		}
 
 		$qry = 'SELECT ' . $fields_str . ' FROM `' . $table . '`' . $joinStr;
