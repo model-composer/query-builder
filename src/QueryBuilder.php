@@ -101,12 +101,14 @@ class QueryBuilder
 			return null;
 
 		$options = array_merge([
+			'operator' => 'AND',
 			'validate_where' => true,
 			'validate_data' => true,
 		], $options);
 
 		$whereStr = $this->buildQueryString($where, [
 			'table' => $table,
+			'operator' => $options['operator'],
 			'validate' => $options['validate_where'],
 		]);
 
@@ -134,11 +136,13 @@ class QueryBuilder
 	public function delete(string $table, array|int $where = [], array $options = []): string
 	{
 		$options = array_merge([
+			'operator' => 'AND',
 			'validate_where' => true,
 		], $options);
 
 		$whereStr = $this->buildQueryString($where, [
 			'table' => $table,
+			'operator' => $options['operator'],
 			'validate' => $options['validate_where'],
 		]);
 
@@ -172,6 +176,7 @@ class QueryBuilder
 			'order_by' => null,
 			'limit' => null,
 			'offset' => null,
+			'operator' => 'AND',
 			'validate_where' => true,
 		], $options);
 
@@ -181,6 +186,7 @@ class QueryBuilder
 			'table' => $table,
 			'alias' => $options['alias'],
 			'joins' => $options['joins'],
+			'operator' => $options['operator'],
 			'validate' => $options['validate_where'],
 		]);
 
