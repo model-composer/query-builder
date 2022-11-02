@@ -112,7 +112,7 @@ class QueryBuilder
 
 		$dataStr = $this->buildQueryString($data, [
 			'table' => $table,
-			'glue' => ',',
+			'operator' => ',',
 			'for-select' => false,
 			'validate' => $options['validate_data'],
 		]);
@@ -352,7 +352,7 @@ class QueryBuilder
 		$options = array_merge([
 			'table' => null,
 			'alias' => null,
-			'glue' => 'AND',
+			'operator' => 'AND',
 			'for-select' => true,
 			'joins' => [],
 			'validate' => true,
@@ -369,12 +369,12 @@ class QueryBuilder
 
 			if (is_array($item)) {
 				if (in_array(strtoupper($k), ['OR', 'AND'])) {
-					$substr = $this->buildQueryString($item, array_merge($options, ['glue' => strtoupper($k)]));
+					$substr = $this->buildQueryString($item, array_merge($options, ['operator' => strtoupper($k)]));
 				} else {
 					switch (count($item)) {
 						case 1:
 							if (in_array(strtoupper(array_key_first($item)), ['OR', 'AND']))
-								$substr = $this->buildQueryString(reset($item), array_merge($options, ['glue' => strtoupper(array_key_first($item))]));
+								$substr = $this->buildQueryString(reset($item), array_merge($options, ['operator' => strtoupper(array_key_first($item))]));
 							else
 								throw new \Exception('Query build error: wrong items number in array #1');
 							break;
@@ -384,12 +384,12 @@ class QueryBuilder
 									if (!is_array($item[1]))
 										throw new \Exception('Operator "' . $item[0] . '" needs an array');
 
-									$substr = $this->buildQueryString($item[1], array_merge($options, ['glue' => strtoupper($item[0])]));
+									$substr = $this->buildQueryString($item[1], array_merge($options, ['operator' => strtoupper($item[0])]));
 								} elseif (isset($item['sub'], $item['operator'])) {
 									if (!in_array(strtoupper($item['operator']), ['OR', 'AND']))
 										throw new \Exception('Operator "' . $item['operator'] . '" not supported');
 
-									$substr = $this->buildQueryString($item['sub'], array_merge($options, ['glue' => strtoupper($item['operator'])]));
+									$substr = $this->buildQueryString($item['sub'], array_merge($options, ['operator' => strtoupper($item['operator'])]));
 								} else {
 									$column = $item[0];
 									$operator = '=';
@@ -530,7 +530,7 @@ class QueryBuilder
 			}
 		}
 
-		return implode(' ' . $options['glue'] . ' ', $str);
+		return implode(' ' . $options['operator'] . ' ', $str);
 	}
 
 	/**
