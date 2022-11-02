@@ -187,7 +187,7 @@ class QueryBuilder
 		$joinStr = $this->buildJoins($options['joins']);
 
 		$fields_str = [];
-		if ($options['fields']) {
+		if ($options['fields'] !== null) {
 			if (is_array($options['fields'])) {
 				if ($options['raw_fields']) {
 					$fields_str = $options['fields'];
@@ -258,7 +258,7 @@ class QueryBuilder
 
 		$fields_str = implode(',', $fields_str);
 
-		if (!$options['fields']) {
+		if ($options['fields'] === null) {
 			$fields_from_joins = [];
 			foreach ($options['joins'] as $join) {
 				foreach ($join['fields'] as $fieldIdx => $field) {
