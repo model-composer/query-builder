@@ -380,7 +380,7 @@ class QueryBuilder
 							break;
 						case 2:
 							if (is_numeric($k)) {
-								if (in_array(strtoupper($item[0]), ['OR', 'AND'])) {
+								if (isset($item[0]) and in_array(strtoupper($item[0]), ['OR', 'AND'])) {
 									if (!is_array($item[1]))
 										throw new \Exception('Operator "' . $item[0] . '" needs an array');
 
