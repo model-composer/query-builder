@@ -170,6 +170,7 @@ class QueryBuilder
 			'sum' => [],
 			'avg' => [],
 			'count' => [],
+			'count_distinct' => [],
 			'raw_fields' => false,
 			'group_by' => null,
 			'having' => [],
@@ -237,6 +238,7 @@ class QueryBuilder
 			'sum',
 			'avg',
 			'count',
+			'count_distinct',
 		];
 
 		foreach ($aggregations as $f) {
@@ -257,7 +259,8 @@ class QueryBuilder
 						$alias = $v;
 					}
 
-					$fields_str[] = strtoupper($f) . '(' . $this->parseColumn($field, $referenceTable) . ') AS ' . $alias;
+					$f = $f === 'count_distinct' ? 'COUNT(DISTINCT ' : strtoupper($f) . '(';
+					$fields_str[] = $f . $this->parseColumn($field, $referenceTable) . ') AS ' . $alias;
 				}
 			}
 		}
