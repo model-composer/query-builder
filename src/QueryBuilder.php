@@ -381,8 +381,7 @@ class QueryBuilder
 					if (!in_array(strtoupper($sortingField[1]), ['ASC', 'DESC']))
 						throw new \Exception('Bad "order by" direction');
 
-					// TODO: look for the right table to use
-					[$_1, $_2, $sortingField[0], $_3] = $this->parseInputColumn($sortingField[0], $queries[0]['table'], $options['joins'], $options['alias'] ?? null);
+					$sortingField[0] = $this->parseColumn($sortingField[0]);
 					$sortingField = implode(' ', $sortingField);
 				}
 				unset($sortingField);
