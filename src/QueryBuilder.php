@@ -351,9 +351,9 @@ class QueryBuilder
 	/**
 	 * @param array $queries
 	 * @param array $options
-	 * @return string
+	 * @return string|null
 	 */
-	public function unionSelect(array $queries, array $options = []): string
+	public function unionSelect(array $queries, array $options = []): ?string
 	{
 		$qry_str = [];
 		foreach ($queries as $qryOptions) {
@@ -369,7 +369,7 @@ class QueryBuilder
 		}
 
 		if (empty($qry_str))
-			return [];
+			return null;
 
 		$qry = implode(' UNION ', $qry_str);
 
