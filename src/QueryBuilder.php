@@ -349,6 +349,80 @@ class QueryBuilder
 	}
 
 	/**
+	 * @param array $queries
+	 * @param array $options
+	 * @return string
+	 */
+	public function unionSelect(array $queries, array $options = []): string
+	{
+		$qry_str = [];
+		foreach ($queries as $qryOptions) {
+			$copiedQueryOptions = $options;
+			if (isset($copiedQueryOptions['order_by']))
+				unset($copiedQueryOptions['order_by']);
+			if (isset($copiedQueryOptions['limit']))
+				unset($copiedQueryOptions['limit']);
+
+			$singleQueryOptions = $qryOptions['options'] ?? [];
+			$copiedQueryOptions = $this->array_merge_recursive_distinct($singleQueryOptions, $copiedQueryOptions);
+			$qry_str[] = $this->select($qryOptions['table'], $qryOptions['where'] ?? [], $copiedQueryOptions);
+		}
+
+		if (empty($qry_str))
+			return [];
+
+		$qry = implode(' UNION ', $qry_str);
+
+		if (($options['order_by'] ?? null) !== null) {
+			if (is_array($options['order_by'])) {
+				foreach ($options['order_by'] as &$sortingField) {
+					if (!is_array($sortingField))
+						$sortingField = [$sortingField, 'ASC'];
+					if (!in_array(strtoupper($sortingField[1]), ['ASC', 'DESC']))
+						throw new \Exception('Bad "order by" direction');
+
+					// TODO: look for the right table to use
+					[$_1, $_2, $sortingField[0], $_3] = $this->parseInputColumn($sortingField[0], $queries[0]['table'], $options['joins'], $options['alias'] ?? null);
+					$sortingField = implode(' ', $sortingField);
+				}
+				unset($sortingField);
+
+				$qry .= ' ORDER BY ' . implode(',', $options['order_by']);
+			} else {
+				$qry .= ' ORDER BY ' . $options['order_by'];
+			}
+		}
+
+		if (($options['limit'] ?? null) !== null)
+			$qry .= ' LIMIT ' . $options['limit'];
+
+		return $qry;
+	}
+
+	/**
+	 * Utility for the previous method
+	 *
+	 * @param array $array1
+	 * @param array $array2
+	 * @return array
+	 */
+	private function array_merge_recursive_distinct(array &$array1, array &$array2): array
+	{
+		$merged = $array1;
+
+		foreach ($array2 as $key => &$value) {
+			if (is_numeric($key))
+				$merged[] = $value;
+			elseif (is_array($value) && isset ($merged [$key]) && is_array($merged [$key]))
+				$merged[$key] = $this->array_merge_recursive_distinct($merged [$key], $value);
+			else
+				$merged[$key] = $value;
+		}
+
+		return $merged;
+	}
+
+	/**
 	 * @param array|int $where
 	 * @param array $options
 	 * @return string
