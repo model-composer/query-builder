@@ -341,7 +341,7 @@ class QueryBuilder
 			}
 
 			$qry .= ' LIMIT ' . $limitQry;
-		} elseif ($options['offset'] !== null) {
+		} elseif ($options['offset']) {
 			throw new \Exception('Offset option must have a limit set as well');
 		}
 
