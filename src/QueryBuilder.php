@@ -35,14 +35,13 @@ class QueryBuilder
 	{
 		$options = array_merge([
 			'replace' => false,
-			'bulk' => false,
 			'validate_data' => true,
 		], $options);
 
 		$keys = null;
 		$qry_rows = [];
 
-		$rows = $options['bulk'] ? $data : [$data];
+		$rows = $this->isAssoc($data) ? [$data] : $data;
 		foreach ($rows as $row) {
 			$rowKeys = [];
 
@@ -85,6 +84,19 @@ class QueryBuilder
 			$qry = ($options['replace'] ? 'REPLACE' : 'INSERT') . ' INTO `' . $table . '`(' . implode(',', $keys) . ') VALUES' . implode(',', $qry_rows);
 
 		return $qry;
+	}
+
+	/**
+	 * Checks whether the given array is associative
+	 *
+	 * @param array $arr
+	 * @return bool
+	 */
+	private function isAssoc(array $arr): bool
+	{
+		if ([] === $arr)
+			return false;
+		return array_keys($arr) !== range(0, count($arr) - 1);
 	}
 
 	/**
