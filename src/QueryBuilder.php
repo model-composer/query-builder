@@ -76,7 +76,7 @@ class QueryBuilder
 			if ($keys === null)
 				$keys = $rowKeys;
 			elseif (json_encode($keys) !== json_encode($rowKeys))
-				throw new \Exception('All rows must have identical rows in a bulk insert');
+				throw new \Exception('All rows must have identical fields in a bulk insert');
 		}
 
 		$qry = null;
