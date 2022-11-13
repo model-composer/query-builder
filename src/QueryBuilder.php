@@ -282,12 +282,22 @@ class QueryBuilder
 		if ($options['fields'] === null) {
 			$fields_from_joins = [];
 			foreach ($options['joins'] as $join) {
+				$joinTableModel = $this->parser->getTable($join['table']);
 				foreach ($join['fields'] as $fieldIdx => $field) {
 					$tableName = $join['alias'] ?? $join['table'];
-					if (is_numeric($fieldIdx))
-						$fields_from_joins[] = $this->parseColumn($field, $tableName);
+
+					$realColumn = is_numeric($fieldIdx) ? $field : $fieldIdx;
+					$alias = $field;
+
+					if ($joinTableModel->columns[$realColumn]['type'] === 'point')
+						$this_field_str = 'ST_AsText(' . $this->parseColumn($realColumn, $tableName) . ')';
 					else
-						$fields_from_joins[] = $this->parseColumn($fieldIdx, $tableName) . ' AS ' . $this->parseColumn($field);
+						$this_field_str = $this->parseColumn($realColumn, $tableName);
+
+					if ($alias !== $realColumn)
+						$this_field_str .= ' AS ' . $this->parseColumn($alias);
+
+					$fields_from_joins[] = $this_field_str;
 				}
 			}
 
