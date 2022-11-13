@@ -838,7 +838,7 @@ class QueryBuilder
 					if ($field === $column) {
 						$isFromJoin = true;
 						$table = $join['table'] ?? $joinIdx;
-						$alias = $join['alias'] ?? $join['table'];
+						$alias = $join['alias'] ?? $table;
 						$column = $fieldName;
 						break 2;
 					}
