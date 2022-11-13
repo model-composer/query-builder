@@ -831,13 +831,13 @@ class QueryBuilder
 			$alias ??= $table;
 			$isFromJoin = false;
 
-			foreach ($joins as $join) {
+			foreach ($joins as $joinIdx => $join) {
 				foreach ($join['fields'] as $fieldIdx => $field) {
 					$fieldName = is_numeric($fieldIdx) ? $field : $fieldIdx;
 
 					if ($field === $column) {
 						$isFromJoin = true;
-						$table = $join['table'];
+						$table = $join['table'] ?? $joinIdx;
 						$alias = $join['alias'] ?? $join['table'];
 						$column = $fieldName;
 						break 2;
