@@ -812,7 +812,7 @@ class QueryBuilder
 	 * @param string|null $alias
 	 * @return array
 	 */
-	private function parseInputColumn(string $column, string $table, array $joins = [], ?string $alias = null): array
+	public function parseInputColumn(string $column, string $table, array $joins = [], ?string $alias = null): array
 	{
 		if (str_contains($column, '.')) {
 			$column = explode('.', $column);
