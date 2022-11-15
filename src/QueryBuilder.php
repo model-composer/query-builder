@@ -832,7 +832,7 @@ class QueryBuilder
 			$isFromJoin = false;
 
 			foreach ($joins as $joinIdx => $join) {
-				foreach ($join['fields'] as $fieldIdx => $field) {
+				foreach (($join['fields'] ?? []) as $fieldIdx => $field) {
 					$fieldName = is_numeric($fieldIdx) ? $field : $fieldIdx;
 
 					if ($field === $column) {
