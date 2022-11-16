@@ -29,9 +29,9 @@ class QueryBuilder
 	 * @param string $table
 	 * @param array $data
 	 * @param array $options
-	 * @return string
+	 * @return string|null
 	 */
-	public function insert(string $table, array $data = [], array $options = []): string
+	public function insert(string $table, array $data = [], array $options = []): ?string
 	{
 		$options = array_merge([
 			'replace' => false,
