@@ -321,14 +321,8 @@ class QueryBuilder
 			unset($field);
 
 			$qry .= ' GROUP BY ' . implode(',', $options['group_by']);
-			if ($options['having']) {
-				$qry .= ' HAVING ' . $this->buildQueryString($options['having'], [
-						'table' => $table,
-						'alias' => $options['alias'] ?? null,
-						'joins' => $options['joins'],
-						'validate' => false,
-					]);
-			}
+			if ($options['having'])
+				$qry .= ' HAVING ' . $this->buildQueryString($options['having'], ['validate' => false]);
 		}
 
 		if ($options['order_by']) {
@@ -812,7 +806,7 @@ class QueryBuilder
 	 * @param string|null $alias
 	 * @return array
 	 */
-	public function parseInputColumn(string $column, string $table, array $joins = [], ?string $alias = null): array
+	public function parseInputColumn(string $column, ?string $table = null, array $joins = [], ?string $alias = null): array
 	{
 		if (str_contains($column, '.')) {
 			$column = explode('.', $column);
