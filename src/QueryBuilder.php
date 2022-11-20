@@ -271,8 +271,8 @@ class QueryBuilder
 						$alias = $v;
 					}
 
-					$f = $f === 'count_distinct' ? 'COUNT(DISTINCT ' : strtoupper($f) . '(';
-					$fields_str[] = $f . $this->parseColumn($field, $referenceTable) . ') AS ' . $alias;
+					$str_beginning = $f === 'count_distinct' ? 'COUNT(DISTINCT ' : strtoupper($f) . '(';
+					$fields_str[] = $str_beginning . $this->parseColumn($field, $referenceTable) . ') AS ' . $alias;
 				}
 			}
 		}
