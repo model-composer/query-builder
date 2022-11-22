@@ -166,7 +166,7 @@ class QueryBuilder
 
 		$joinStr = $this->buildJoins($options['joins']);
 
-		$qry = 'DELETE FROM `' . $table . '`' . $joinStr;
+		$qry = 'DELETE `' . ($options['alias'] ?? $table) . '` FROM `' . $table . '`' . ($options['alias'] ? ' AS `' . $options['alias'] . '`' : '') . $joinStr;
 		if ($whereStr)
 			$qry .= ' WHERE ' . $whereStr;
 
