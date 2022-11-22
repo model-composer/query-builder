@@ -164,7 +164,9 @@ class QueryBuilder
 			'validate' => $options['validate_where'],
 		]);
 
-		$qry = 'DELETE FROM `' . $table . '`';
+		$joinStr = $this->buildJoins($options['joins']);
+
+		$qry = 'DELETE FROM `' . $table . '`' . $joinStr;
 		if ($whereStr)
 			$qry .= ' WHERE ' . $whereStr;
 
