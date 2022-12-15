@@ -640,6 +640,67 @@ class QueryBuilder
 	}
 
 	/**
+	 * @param array $where
+	 * @return array
+	 * @throws \Exception
+	 */
+	public function getFieldsInvolvedInWhere(array $where): array
+	{
+		$fields = [];
+
+		foreach ($where as $k => $item) {
+			if (is_array($item)) {
+				if (in_array(strtoupper($k), ['OR', 'AND'])) {
+					foreach ($this->getFieldsInvolvedInWhere($item) as $f)
+						$fields[] = $f;
+				} else {
+					switch (count($item)) {
+						case 1:
+							if (in_array(strtoupper(array_key_first($item)), ['OR', 'AND'])) {
+								foreach ($this->getFieldsInvolvedInWhere(reset($item)) as $f)
+									$fields[] = $f;
+							} else {
+								throw new \Exception('Query build error: wrong items number in array #1');
+							}
+							break;
+
+						case 2:
+							if (is_numeric($k)) {
+								if (isset($item[0]) and in_array(strtoupper($item[0]), ['OR', 'AND'])) {
+									if (!is_array($item[1]))
+										throw new \Exception('Operator "' . $item[0] . '" needs an array');
+
+									foreach ($this->getFieldsInvolvedInWhere($item[1]) as $f)
+										$fields[] = $f;
+								} elseif (isset($item['sub'], $item['operator'])) {
+									foreach ($this->getFieldsInvolvedInWhere($item['sub']) as $f)
+										$fields[] = $f;
+								} else {
+									$fields[] = $item[0];
+								}
+							} else {
+								$fields[] = $k;
+							}
+							break;
+
+						case 3:
+							$fields[] = $item[0];
+							break;
+
+						default:
+							throw new \Exception('Query build error: wrong items number in array #2');
+					}
+				}
+			} else {
+				if (!is_numeric($k))
+					$fields[] = $k;
+			}
+		}
+
+		return $fields;
+	}
+
+	/**
 	 * Possible formats for a join:
 	 * - => 'table_name' (string)
 	 * - 'table_name' => ['field1', 'field2']
