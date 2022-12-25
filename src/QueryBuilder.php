@@ -113,19 +113,27 @@ class QueryBuilder
 			return null;
 
 		$options = array_merge([
+			'alias' => null,
+			'joins' => [],
 			'operator' => 'AND',
 			'validate_where' => true,
 			'validate_data' => true,
 		], $options);
 
+		$options['joins'] = $this->normalizeJoins($options['alias'] ?? $table, $options['joins']);
+
 		$whereStr = $this->buildQueryString($where, [
 			'table' => $table,
+			'alias' => $options['alias'],
+			'joins' => $options['joins'],
 			'operator' => $options['operator'],
 			'validate' => $options['validate_where'],
 		]);
 
 		$dataStr = $this->buildQueryString($data, [
 			'table' => $table,
+			'alias' => $options['alias'],
+			'joins' => $options['joins'],
 			'operator' => ',',
 			'for-select' => false,
 			'validate' => $options['validate_data'],
