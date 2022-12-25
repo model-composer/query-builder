@@ -139,7 +139,9 @@ class QueryBuilder
 			'validate' => $options['validate_data'],
 		]);
 
-		$qry = 'UPDATE `' . $table . '` SET ' . $dataStr;
+		$joinStr = $this->buildJoins($options['joins']);
+
+		$qry = 'UPDATE `' . $table . '`' . ($options['alias'] ? ' AS `' . $options['alias'] . '`' : '') . $joinStr . ' SET ' . $dataStr;
 		if ($whereStr)
 			$qry .= ' WHERE ' . $whereStr;
 
