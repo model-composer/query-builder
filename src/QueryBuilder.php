@@ -450,7 +450,7 @@ class QueryBuilder
 	 * @param array $options
 	 * @return string
 	 */
-	private function buildQueryString(array|int $where, array $options = []): string
+	public function buildQueryString(array|int $where, array $options = []): string
 	{
 		if (!is_array($where))
 			$where = ['id' => $where];
