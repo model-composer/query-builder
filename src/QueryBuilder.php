@@ -41,7 +41,7 @@ class QueryBuilder
 		$keys = null;
 		$qry_rows = [];
 
-		$rows = $this->isAssoc($data) ? [$data] : $data;
+		$rows = (count($data) === 0 or $this->isAssoc($data)) ? [$data] : $data;
 		foreach ($rows as $row) {
 			$rowKeys = [];
 
@@ -94,8 +94,6 @@ class QueryBuilder
 	 */
 	private function isAssoc(array $arr): bool
 	{
-		if ([] === $arr)
-			return false;
 		return array_keys($arr) !== range(0, count($arr) - 1);
 	}
 
