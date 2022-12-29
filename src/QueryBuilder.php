@@ -60,12 +60,14 @@ class QueryBuilder
 							throw new \Exception('Column "' . $realColumn . '" does not exist in table "' . $realTable . '"');
 
 						$columnType = $realTableModel->columns[$realColumn]['type'];
+						$nullableColumn = $realTableModel->columns[$realColumn]['null'];
 					} else {
 						$realTableModel = null;
 						$columnType = null;
+						$nullableColumn = null;
 					}
 
-					if ($v === null and $options['cast_null'])
+					if ($v === null and !$nullableColumn and $options['cast_null'])
 						$v = $this->castNull($columnType);
 
 					if ($realTableModel and $options['validate_data'])
@@ -583,9 +585,11 @@ class QueryBuilder
 							throw new \Exception('Column "' . $realColumn . '" does not exist in table "' . $realTable . '"');
 
 						$columnType = $realTableModel->columns[$realColumn]['type'];
+						$nullableColumn = $realTableModel->columns[$realColumn]['null'];
 					} else {
 						$realTableModel = null;
 						$columnType = null;
+						$nullableColumn = true;
 					}
 
 					if ($value === null and $options['for-select']) {
@@ -633,7 +637,7 @@ class QueryBuilder
 								$parsedValues = [];
 								foreach ($value as $v) {
 									if ($realTableModel and $options['validate'] and ($v !== null or !$isFromJoin)) {
-										if ($v === null and $options['cast_null'])
+										if ($v === null and !$nullableColumn and $options['cast_null'])
 											$v = $this->castNull($columnType);
 										$this->validateColumnValue($realTableModel, $realColumn, $v);
 									}
@@ -646,7 +650,7 @@ class QueryBuilder
 							break;
 						default:
 							if ($realTableModel and $options['validate'] and ($value !== null or !$isFromJoin)) {
-								if ($value === null and $options['cast_null'])
+								if ($value === null and !$nullableColumn and $options['cast_null'])
 									$value = $this->castNull($columnType);
 								$this->validateColumnValue($realTableModel, $realColumn, $value);
 							}
@@ -995,9 +999,9 @@ class QueryBuilder
 	 * Cast a value to a corresponding non-null value
 	 *
 	 * @param string $columnType
-	 * @return mixed
+	 * @return string|int
 	 */
-	private function castNull(string $columnType): mixed
+	private function castNull(string $columnType): string|int
 	{
 		switch ($columnType) {
 			case 'int':
