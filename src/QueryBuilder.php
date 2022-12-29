@@ -231,13 +231,15 @@ class QueryBuilder
 						$field = is_numeric($k) ? $v : $k;
 						$alias = is_numeric($k) ? null : $v;
 
-						[$realTable, $realColumn, $parsedColumn, $isFromJoin] = $this->parseInputColumn($v, $table, $options['joins'], $options['alias'] ?? null);
-						$realTableModel = $this->parser->getTable($realTable);
+						[$realTable, $realColumn, $parsedColumn, $isFromJoin] = $this->parseInputColumn($field, $table, $options['joins'], $options['alias'] ?? null);
+						if ($alias === null and $isFromJoin and is_string($isFromJoin)) // Alias of the column as specified in the join
+							$alias = $isFromJoin;
+						$realTableModel = $realTable ? $this->parser->getTable($realTable) : null;
 
-						if (!isset($realTableModel->columns[$realColumn]))
+						if ($realTableModel and !isset($realTableModel->columns[$realColumn]))
 							throw new \Exception('Field "' . $field . '" does not exist');
 
-						if ($realTableModel->columns[$realColumn]['type'] === 'point')
+						if ($realTableModel and $realTableModel->columns[$realColumn]['type'] === 'point')
 							$fields_str[] = 'ST_AsText(' . $parsedColumn . ') AS ' . $this->parseColumn($alias ?? $field);
 						else
 							$fields_str[] = $parsedColumn . ($alias ? ' AS ' . $this->parseColumn($alias) : '');
@@ -905,9 +907,10 @@ class QueryBuilder
 			foreach ($joins as $joinIdx => $join) {
 				foreach (($join['fields'] ?? []) as $fieldIdx => $field) {
 					$fieldName = is_numeric($fieldIdx) ? $field : $fieldIdx;
+					$fieldAlias = $field;
 
 					if ($field === $column) {
-						$isFromJoin = true;
+						$isFromJoin = !is_numeric($fieldIdx) ? $fieldAlias : true; // If an alias was specified, I'll report it here
 						$table = $join['table'] ?? $joinIdx;
 						$alias = $join['alias'] ?? $table;
 						$column = $fieldName;
