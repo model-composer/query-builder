@@ -36,6 +36,7 @@ class QueryBuilder
 		$options = array_merge([
 			'replace' => false,
 			'validate_data' => true,
+			'cast_null' => false,
 		], $options);
 
 		$keys = null;
@@ -63,6 +64,9 @@ class QueryBuilder
 						$realTableModel = null;
 						$columnType = null;
 					}
+
+					if ($v === null and $options['cast_null'])
+						$v = $this->castNull($columnType);
 
 					if ($realTableModel and $options['validate_data'])
 						$this->validateColumnValue($realTableModel, $realColumn, $v);
@@ -116,6 +120,7 @@ class QueryBuilder
 			'operator' => 'AND',
 			'validate_where' => true,
 			'validate_data' => true,
+			'cast_null' => false,
 		], $options);
 
 		$options['joins'] = $this->normalizeJoins($options['alias'] ?? $table, $options['joins']);
@@ -135,6 +140,7 @@ class QueryBuilder
 			'operator' => ',',
 			'for-select' => false,
 			'validate' => $options['validate_data'],
+			'cast_null' => $options['cast_null'],
 		]);
 
 		$joinStr = $this->buildJoins($options['joins']);
@@ -472,6 +478,7 @@ class QueryBuilder
 			'for-select' => true,
 			'joins' => [],
 			'validate' => true,
+			'cast_null' => false,
 		], $options);
 
 		$tableModel = null;
@@ -625,8 +632,12 @@ class QueryBuilder
 							} else {
 								$parsedValues = [];
 								foreach ($value as $v) {
-									if ($realTableModel and $options['validate'] and ($v !== null or !$isFromJoin))
+									if ($realTableModel and $options['validate'] and ($v !== null or !$isFromJoin)) {
+										if ($v === null and $options['cast_null'])
+											$v = $this->castNull($columnType);
 										$this->validateColumnValue($realTableModel, $realColumn, $v);
+									}
+
 									$parsedValues[] = $this->parseValue($v, $columnType);
 								}
 
@@ -634,8 +645,11 @@ class QueryBuilder
 							}
 							break;
 						default:
-							if ($realTableModel and $options['validate'] and ($value !== null or !$isFromJoin))
+							if ($realTableModel and $options['validate'] and ($value !== null or !$isFromJoin)) {
+								if ($value === null and $options['cast_null'])
+									$value = $this->castNull($columnType);
 								$this->validateColumnValue($realTableModel, $realColumn, $value);
+							}
 
 							$substr = $parsedColumn . ' ' . $operator . ' ' . $this->parseValue($value, $columnType);
 							break;
@@ -974,6 +988,40 @@ class QueryBuilder
 				throw new \Exception('Db error: unknown value type in query (' . print_r($v, true) . ')');
 		} else {
 			return $this->getDb()->quote($v);
+		}
+	}
+
+	/**
+	 * Cast a value to a corresponding non-null value
+	 *
+	 * @param string $columnType
+	 * @return mixed
+	 */
+	private function castNull(string $columnType): mixed
+	{
+		switch ($columnType) {
+			case 'int':
+			case 'tinyint':
+			case 'smallint':
+			case 'mediumint':
+			case 'bigint':
+			case 'float':
+			case 'decimal':
+			case 'double':
+			case 'year':
+				return 0;
+
+			case 'date':
+				return '0000-00-00';
+
+			case 'time':
+				return '00:00:00';
+
+			case 'datetime':
+				return '0000-00-00 00:00:00';
+
+			default:
+				return '';
 		}
 	}
 
