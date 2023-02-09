@@ -559,7 +559,7 @@ class QueryBuilder
 			} else {
 				$operator = strtoupper($operator);
 
-				if ($operator === 'MATCH') {
+				if (in_array($operator, ['MATCH', 'MATCH NATURAL LANGUAGE', 'MATCH BOOLEAN', 'MATCH QUERY EXPANSION'])) {
 					if (!is_array($column)) {
 						if (is_string($column))
 							$column = [$column];
@@ -573,7 +573,14 @@ class QueryBuilder
 						$parsedColumnArr[] = $parsedColumn;
 					}
 
-					$substr = 'MATCH(' . implode(',', $parsedColumnArr) . ') AGAINST(' . $this->parseValue($value) . ')';
+					$search_modifier = match ($operator) {
+						'MATCH NATURAL LANGUAGE' => ' IN NATURAL LANGUAGE MODE',
+						'MATCH BOOLEAN' => ' IN BOOLEAN MODE',
+						'MATCH QUERY EXPANSION' => ' WITH QUERY EXPANSION',
+						default => '',
+					};
+
+					$substr = 'MATCH(' . implode(',', $parsedColumnArr) . ') AGAINST(' . $this->parseValue($value) . $search_modifier . ')';
 				} else {
 					if (!is_string($column))
 						throw new \Exception('Column name must be a string');
