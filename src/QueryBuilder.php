@@ -261,7 +261,7 @@ class QueryBuilder
 		} else {
 			$tableModel = $this->parser->getTable($table);
 
-			$fields_str[] = ($options['alias'] ?? $table) . '.*';
+			$fields_str[] = $this->parseColumn($options['alias'] ?? $table) . '.*';
 			foreach ($tableModel->columns as $field => $fieldOpt) {
 				if ($fieldOpt['type'] === 'point') {
 					$parsedField = $this->parseColumn($field, $options['alias'] ?? $table);
