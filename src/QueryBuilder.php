@@ -994,7 +994,7 @@ class QueryBuilder
 
 		if (is_array($v)) {
 			if ($type === 'point')
-				return 'POINT(' . $v[0] . ',' . $v[1] . ')';
+				return 'POINT(' . $v['lng'] . ',' . $v['lat'] . ')';
 			else
 				throw new \Exception('Db error: unknown value type in query (' . print_r($v, true) . ')');
 		} else {
@@ -1089,7 +1089,7 @@ class QueryBuilder
 				break;
 
 			case 'point':
-				if (!is_array($v) or count($v) !== 2 or !is_numeric($v[0]) or !is_numeric($v[1]))
+				if (!is_array($v) or count($v) !== 2 or !isset($v['lat'], $v['lng']) or !is_numeric($v['lat']) or !is_numeric($v['lng']))
 					throw new \Exception('"' . $table->name . '.' . $columnName . '": bad point format');
 				break;
 		}
