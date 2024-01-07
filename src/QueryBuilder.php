@@ -993,7 +993,7 @@ class QueryBuilder
 		}
 
 		if ($type === 'json')
-			return json_encode($v);
+			$v = json_encode($v);
 
 		if (is_array($v)) {
 			if ($type === 'point')
