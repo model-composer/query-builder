@@ -140,7 +140,7 @@ class QueryBuilder
 			'alias' => $options['alias'],
 			'joins' => $options['joins'],
 			'operator' => ',',
-			'for-select' => false,
+			'for_select' => false,
 			'validate' => $options['validate_data'],
 			'cast_null' => $options['cast_null'],
 		]);
@@ -477,7 +477,7 @@ class QueryBuilder
 			'table' => null,
 			'alias' => null,
 			'operator' => 'AND',
-			'for-select' => true,
+			'for_select' => true,
 			'joins' => [],
 			'validate' => true,
 			'cast_null' => false,
@@ -492,7 +492,7 @@ class QueryBuilder
 		foreach ($where as $k => $item) {
 			$substr = null;
 
-			if (is_array($item)) {
+			if (is_array($item) and $options['for_select']) {
 				if (in_array(strtoupper($k), ['OR', 'AND'])) {
 					$substr = $this->buildQueryString($item, array_merge($options, ['operator' => strtoupper($k)]));
 				} else {
@@ -599,7 +599,7 @@ class QueryBuilder
 						$nullableColumn = true;
 					}
 
-					if ($value === null and $options['for-select']) {
+					if ($value === null and $options['for_select']) {
 						switch ($operator) {
 							case '=':
 								$operator = 'IS';
