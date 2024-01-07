@@ -992,6 +992,9 @@ class QueryBuilder
 				throw new \Exception('Only date/time can be passed as object as db values');
 		}
 
+		if ($type === 'json')
+			return json_encode($v);
+
 		if (is_array($v)) {
 			if ($type === 'point')
 				return 'POINT(' . $v['lng'] . ',' . $v['lat'] . ')';
