@@ -133,6 +133,7 @@ class QueryBuilder
 			'joins' => $options['joins'],
 			'operator' => $options['operator'],
 			'validate' => $options['validate_where'],
+			'check_length' => false,
 		]);
 
 		$dataStr = $this->buildQueryString($data, [
@@ -178,6 +179,7 @@ class QueryBuilder
 			'joins' => $options['joins'],
 			'operator' => $options['operator'],
 			'validate' => $options['validate_where'],
+			'check_length' => false,
 		]);
 
 		$joinStr = $this->buildJoins($options['joins']);
@@ -225,6 +227,7 @@ class QueryBuilder
 			'joins' => $options['joins'],
 			'operator' => $options['operator'],
 			'validate' => $options['validate_where'],
+			'check_length' => false,
 		]);
 
 		$joinStr = $this->buildJoins($options['joins']);
@@ -348,7 +351,7 @@ class QueryBuilder
 
 			$qry .= ' GROUP BY ' . implode(',', $options['group_by']);
 			if ($options['having'])
-				$qry .= ' HAVING ' . $this->buildQueryString($options['having'], ['validate' => false]);
+				$qry .= ' HAVING ' . $this->buildQueryString($options['having'], ['validate' => false, 'check_length' => false]);
 		}
 
 		if ($options['order_by']) {
@@ -481,6 +484,7 @@ class QueryBuilder
 			'joins' => [],
 			'validate' => true,
 			'cast_null' => false,
+			'check_length' => true,
 		], $options);
 
 		$tableModel = null;
@@ -621,8 +625,8 @@ class QueryBuilder
 								throw new \Exception('"between" cannot accept null values');
 
 							if ($realTableModel and $options['validate']) {
-								$this->validateColumnValue($realTableModel, $realColumn, $value[0]);
-								$this->validateColumnValue($realTableModel, $realColumn, $value[1]);
+								$this->validateColumnValue($realTableModel, $realColumn, $value[0], ['check_length' => $options['check_length']]);
+								$this->validateColumnValue($realTableModel, $realColumn, $value[1], ['check_length' => $options['check_length']]);
 							}
 
 							$substr = $parsedColumn . ' BETWEEN ' . $this->parseValue($value[0], $columnType) . ' AND ' . $this->parseValue($value[1], $columnType);
@@ -646,7 +650,7 @@ class QueryBuilder
 									if ($realTableModel and $options['validate'] and ($v !== null or !$isFromJoin)) {
 										if ($v === null and !$nullableColumn and $options['cast_null'])
 											$v = $this->castNull($columnType);
-										$this->validateColumnValue($realTableModel, $realColumn, $v);
+										$this->validateColumnValue($realTableModel, $realColumn, $v, ['check_length' => $options['check_length']]);
 									}
 
 									$parsedValues[] = $this->parseValue($v, $columnType);
@@ -659,7 +663,7 @@ class QueryBuilder
 							if ($realTableModel and $options['validate'] and ($value !== null or !$isFromJoin)) {
 								if ($value === null and !$nullableColumn and $options['cast_null'])
 									$value = $this->castNull($columnType);
-								$this->validateColumnValue($realTableModel, $realColumn, $value);
+								$this->validateColumnValue($realTableModel, $realColumn, $value, ['check_length' => $options['check_length']]);
 							}
 
 							$substr = $parsedColumn . ' ' . $operator . ' ' . $this->parseValue($value, $columnType);
@@ -891,6 +895,7 @@ class QueryBuilder
 					$join['where'] = $this->buildQueryString($join['where'], [
 						'table' => $join['table'],
 						'alias' => $join['alias'] ?? null,
+						'check_length' => false,
 					]);
 				}
 
@@ -1043,13 +1048,18 @@ class QueryBuilder
 	 * @param Table $table
 	 * @param string $columnName
 	 * @param mixed $v
+	 * @param array $options
 	 * @return void
 	 * @throws \Exception
 	 */
-	private function validateColumnValue(Table $table, string $columnName, mixed $v): void
+	private function validateColumnValue(Table $table, string $columnName, mixed $v, array $options = []): void
 	{
 		if (!array_key_exists($columnName, $table->columns))
 			throw new \Exception('Database column "' . $table->name . '.' . $columnName . '" does not exist!');
+
+		$options = array_merge([
+			'check_length' => true,
+		], $options);
 
 		$column = $table->columns[$columnName];
 		if ($v === null) {
@@ -1075,7 +1085,7 @@ class QueryBuilder
 
 			case 'char':
 			case 'varchar':
-				if ($column['length'] and strlen($v) > $column['length'])
+				if ($column['length'] and strlen($v) > $column['length'] and $options['check_length'])
 					throw new \Exception('"' . $table->name . '.' . $columnName . '" length exceeded (must be shorter than ' . $column['length'] . ')');
 				break;
 
