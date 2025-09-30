@@ -1,0 +1,812 @@
+---
+description: Docs and usage examples for ModEl Query Builder - use this when you have to interact with database methods (select, insert, selectAll, update, delete, etc)
+alwaysApply: false
+---
+A powerful SQL query builder for PHP that provides a fluent interface for constructing database queries with automatic validation against your database schema.
+
+## Features
+
+- **Type-safe query building** with automatic validation against database schema
+- **Support for all major SQL operations** (SELECT, INSERT, UPDATE, DELETE)
+- **Complex WHERE clauses** with nested conditions and multiple operators
+- **JOIN support** with automatic foreign key detection
+- **Aggregation functions** (MIN, MAX, SUM, AVG, COUNT, COUNT DISTINCT)
+- **Special data types** handling (POINT, JSON, DATE, DATETIME)
+- **Data validation** to prevent invalid queries
+- **UNION queries** support
+
+## Basic Usage
+
+```php
+use Model\QueryBuilder\QueryBuilder;
+use Model\DbParser\Parser;
+
+// Initialize with a Parser instance
+$parser = new Parser($pdo);
+$qb = new QueryBuilder($parser);
+```
+
+## INSERT Queries
+
+### Simple Insert
+
+```php
+// Insert a single row
+$query = $qb->insert('users', [
+	'name' => 'John Doe',
+	'email' => 'john@example.com',
+	'age' => 30,
+]);
+// INSERT INTO `users`(`name`,`email`,`age`) VALUES('John Doe','john@example.com',30)
+```
+
+### Bulk Insert
+
+```php
+// Insert multiple rows
+$query = $qb->insert('users', [
+	['name' => 'John', 'email' => 'john@example.com'],
+	['name' => 'Jane', 'email' => 'jane@example.com'],
+	['name' => 'Bob', 'email' => 'bob@example.com'],
+]);
+```
+
+### Insert Options
+
+```php
+$query = $qb->insert('users', $data, [
+	'replace' => true,          // Use REPLACE instead of INSERT
+	'validate_data' => true,    // Validate data against schema (default: true)
+	'cast_null' => false,       // Cast null values to appropriate defaults (default: false)
+]);
+```
+
+### Empty Insert
+
+```php
+// Insert empty row (all default values)
+$query = $qb->insert('users', []);
+// INSERT INTO `users`() VALUES()
+```
+
+## UPDATE Queries
+
+### Simple Update
+
+```php
+// Update by ID
+$query = $qb->update('users', 5, [
+	'name' => 'Jane Doe',
+	'age' => 31,
+]);
+// UPDATE `users` SET `users`.`name`='Jane Doe',`users`.`age`=31 WHERE `users`.`id`=5
+```
+
+### Update with WHERE Clause
+
+```php
+$query = $qb->update('users', ['active' => 1], [
+	'status' => 'verified',
+]);
+```
+
+### Update with Joins
+
+```php
+$query = $qb->update('users', ['role' => 'admin'], 
+	['verified' => 1],
+	[
+		'alias' => 'u',
+		'joins' => [
+			'profiles' => [
+				'on' => 'user_id',
+				'fields' => [],
+			],
+		],
+	]
+);
+```
+
+### Update Options
+
+```php
+$query = $qb->update('users', $where, $data, [
+	'alias' => 'u',              // Table alias
+	'joins' => [],               // Array of joins
+	'operator' => 'AND',         // WHERE operator (AND/OR)
+	'validate_where' => true,    // Validate WHERE clause
+	'validate_data' => true,     // Validate data
+	'cast_null' => false,        // Cast null values
+]);
+```
+
+## DELETE Queries
+
+### Simple Delete
+
+```php
+// Delete by ID
+$query = $qb->delete('users', 5);
+// DELETE `users` FROM `users` WHERE `users`.`id`=5
+```
+
+### Delete with WHERE Clause
+
+```php
+$query = $qb->delete('users', [
+	'active' => 0,
+	'created_at' => ['<', '2020-01-01'],
+]);
+```
+
+### Delete with Joins
+
+```php
+$query = $qb->delete('users', ['verified' => 0], [
+	'alias' => 'u',
+	'joins' => [
+		'profiles' => [
+			'where' => ['completed' => 0],
+		],
+	],
+]);
+```
+
+## SELECT Queries
+
+### Simple Select
+
+```php
+// Select all columns
+$query = $qb->select('users');
+// SELECT `users`.*,ST_AsText(`users`.`location`) AS `location` FROM `users`
+
+// Select by ID
+$query = $qb->select('users', 5);
+// SELECT `users`.* FROM `users` WHERE `users`.`id`=5
+```
+
+### Select Specific Fields
+
+```php
+$query = $qb->select('users', [], [
+	'fields' => ['id', 'name', 'email'],
+]);
+```
+
+### Select with Aliases
+
+```php
+$query = $qb->select('users', [], [
+	'fields' => [
+		'id' => 'user_id',
+		'name' => 'full_name',
+		'email',
+	],
+]);
+// SELECT `users`.`id` AS `user_id`,`users`.`name` AS `full_name`,`users`.`email` FROM `users`
+```
+
+### Select with Raw Fields
+
+```php
+$query = $qb->select('users', [], [
+	'fields' => ['COUNT(*) as total', 'MAX(age) as max_age'],
+	'raw_fields' => true,
+]);
+```
+
+### Aggregation Functions
+
+```php
+$query = $qb->select('orders', [], [
+	'fields' => ['user_id'],
+	'count' => ['id' => 'total_orders'],
+	'sum' => ['amount' => 'total_amount'],
+	'avg' => ['amount' => 'avg_amount'],
+	'min' => ['amount' => 'min_amount'],
+	'max' => ['amount' => 'max_amount'],
+	'count_distinct' => ['product_id' => 'unique_products'],
+	'group_by' => ['user_id'],
+]);
+```
+
+### GROUP BY and HAVING
+
+```php
+$query = $qb->select('orders', [], [
+	'fields' => ['user_id'],
+	'count' => ['id' => 'total'],
+	'group_by' => ['user_id'],
+	'having' => ['total > 5'],
+]);
+```
+
+### ORDER BY
+
+```php
+// Simple order
+$query = $qb->select('users', [], [
+	'order_by' => 'created_at DESC',
+]);
+
+// Multiple fields
+$query = $qb->select('users', [], [
+	'order_by' => [
+		['name', 'ASC'],
+		['created_at', 'DESC'],
+	],
+]);
+```
+
+### LIMIT and OFFSET
+
+```php
+$query = $qb->select('users', [], [
+	'limit' => 10,
+	'offset' => 20,
+]);
+// SELECT ... FROM `users` LIMIT 20,10
+```
+
+### Joins
+
+#### Simple Join (Auto-detected FK)
+
+```php
+$query = $qb->select('users', [], [
+	'joins' => [
+		'profiles',  // Will auto-detect FK relationship
+	],
+]);
+```
+
+#### Join with Specific Fields
+
+```php
+$query = $qb->select('users', [], [
+	'joins' => [
+		'profiles' => ['bio', 'avatar'],
+	],
+]);
+```
+
+#### Join with Custom ON Clause
+
+```php
+$query = $qb->select('users', [], [
+	'joins' => [
+		'profiles' => [
+			'on' => ['id' => 'user_id'],
+			'fields' => ['bio', 'avatar'],
+		],
+	],
+]);
+```
+
+#### Join with Alias
+
+```php
+$query = $qb->select('users', [], [
+	'alias' => 'u',
+	'joins' => [
+		[
+			'table' => 'profiles',
+			'alias' => 'p',
+			'on' => ['u.id' => 'p.user_id'],
+			'fields' => ['bio' => 'user_bio'],
+		],
+	],
+]);
+```
+
+#### Join with WHERE Condition
+
+```php
+$query = $qb->select('users', [], [
+	'joins' => [
+		'profiles' => [
+			'where' => ['verified' => 1],
+			'fields' => ['bio'],
+		],
+	],
+]);
+```
+
+#### Join Types
+
+```php
+$query = $qb->select('users', [], [
+	'joins' => [
+		[
+			'table' => 'profiles',
+			'type' => 'LEFT',  // INNER (default), LEFT, RIGHT, etc.
+			'fields' => ['bio'],
+		],
+	],
+]);
+```
+
+### Select Options
+
+```php
+$query = $qb->select('users', $where, [
+	'alias' => null,              // Table alias
+	'joins' => [],                // Array of joins
+	'fields' => null,             // Fields to select (null = all)
+	'min' => [],                  // MIN aggregations
+	'max' => [],                  // MAX aggregations
+	'sum' => [],                  // SUM aggregations
+	'avg' => [],                  // AVG aggregations
+	'count' => [],                // COUNT aggregations
+	'count_distinct' => [],       // COUNT DISTINCT aggregations
+	'raw_fields' => false,        // Use raw field names
+	'group_by' => null,           // GROUP BY clause
+	'having' => [],               // HAVING clause
+	'order_by' => null,           // ORDER BY clause
+	'limit' => null,              // LIMIT
+	'offset' => null,             // OFFSET
+	'operator' => 'AND',          // WHERE operator
+	'validate_where' => true,     // Validate WHERE clause
+]);
+```
+
+## WHERE Clauses
+
+### Simple Conditions
+
+```php
+// Key-value pairs (uses = operator)
+$where = [
+	'active' => 1,
+	'status' => 'verified',
+];
+
+// Specify by ID
+$where = 5;  // Equivalent to ['id' => 5]
+```
+
+### Comparison Operators
+
+```php
+$where = [
+	'age' => ['>', 18],
+	'created_at' => ['<', '2023-01-01'],
+	'status' => ['!=', 'deleted'],
+	'rating' => ['>=', 4.5],
+];
+```
+
+### NULL Comparisons
+
+```php
+$where = [
+	'deleted_at' => null,  // IS NULL
+	'email' => ['!=', null],  // IS NOT NULL
+];
+```
+
+### BETWEEN
+
+```php
+$where = [
+	'age' => ['BETWEEN', [18, 65]],
+	'created_at' => ['BETWEEN', ['2023-01-01', '2023-12-31']],
+];
+```
+
+### IN and NOT IN
+
+```php
+$where = [
+	'status' => ['IN', ['active', 'pending', 'verified']],
+	'role' => ['NOT IN', ['banned', 'deleted']],
+];
+
+// Empty array handling
+$where = [
+	'status' => ['IN', []],  // Results in (1=2) - impossible condition
+	'status' => ['NOT IN', []],  // Ignored
+];
+```
+
+### LIKE
+
+```php
+$where = [
+	'name' => ['LIKE', '%John%'],
+	'email' => ['LIKE', '%@gmail.com'],
+];
+```
+
+### MATCH (Full-text Search)
+
+```php
+// Simple match
+$where = [
+	'description' => ['MATCH', 'search terms'],
+];
+
+// Match with mode
+$where = [
+	'description' => ['MATCH BOOLEAN', '+required -excluded'],
+	'content' => ['MATCH NATURAL LANGUAGE', 'search query'],
+	'text' => ['MATCH QUERY EXPANSION', 'keywords'],
+];
+```
+
+### AND Operator (Default)
+
+```php
+$where = [
+	'active' => 1,
+	'verified' => 1,
+	'age' => ['>', 18],
+];
+// WHERE active=1 AND verified=1 AND age>18
+```
+
+### OR Operator
+
+```php
+$where = [
+	'OR' => [
+		'status' => 'active',
+		'status' => 'pending',
+	],
+];
+
+// Alternative syntax
+$where = [
+	['OR', [
+		'status' => 'active',
+		'status' => 'pending',
+	]],
+];
+```
+
+### Nested Conditions
+
+```php
+$where = [
+	'active' => 1,
+	'OR' => [
+		'role' => 'admin',
+		'AND' => [
+			'role' => 'moderator',
+			'verified' => 1,
+		],
+	],
+];
+// WHERE active=1 AND (role='admin' OR (role='moderator' AND verified=1))
+```
+
+### Complex Nested Example
+
+```php
+$where = [
+	'AND' => [
+		'active' => 1,
+		'OR' => [
+			'status' => 'premium',
+			'AND' => [
+				'status' => 'free',
+				'credits' => ['>', 0],
+			],
+		],
+	],
+];
+```
+
+### Sub-operator Format
+
+```php
+$where = [
+	[
+		'sub' => [
+			'role' => 'admin',
+			'verified' => 1,
+		],
+		'operator' => 'OR',
+	],
+];
+```
+
+### Array Format for Conditions
+
+```php
+// Two-element array: [column, value]
+$where = [
+	['status', 'active'],
+];
+
+// Three-element array: [column, operator, value]
+$where = [
+	['age', '>', 18],
+	['created_at', '<', '2023-01-01'],
+];
+```
+
+### Raw SQL Conditions
+
+```php
+$where = [
+	'YEAR(created_at) = 2023',
+	'MONTH(updated_at) = ' . date('m'),
+];
+```
+
+### Table Prefixes in WHERE
+
+```php
+$where = [
+	'users.active' => 1,
+	'profiles.verified' => 1,
+];
+```
+
+## UNION SELECT
+
+Combine multiple SELECT queries:
+
+```php
+$query = $qb->unionSelect([
+	[
+		'table' => 'users',
+		'where' => ['active' => 1],
+		'options' => ['fields' => ['id', 'name', 'email']],
+	],
+	[
+		'table' => 'archived_users',
+		'where' => ['restored' => 1],
+		'options' => ['fields' => ['id', 'name', 'email']],
+	],
+], [
+	'order_by' => 'name ASC',
+	'limit' => 100,
+]);
+```
+
+## Special Data Types
+
+### POINT (Geospatial)
+
+```php
+// Insert with POINT
+$qb->insert('locations', [
+	'name' => 'Office',
+	'coordinates' => ['lat' => 40.7128, 'lng' => -74.0060],
+]);
+
+// Query with POINT
+$qb->select('locations', [
+	'coordinates' => ['lat' => 40.7128, 'lng' => -74.0060],
+]);
+```
+
+The QueryBuilder automatically handles POINT columns:
+- In INSERT/UPDATE: Converts arrays to `POINT(lng, lat)` format
+- In SELECT: Uses `ST_AsText()` for retrieval
+
+### JSON
+
+```php
+// Insert with JSON
+$qb->insert('settings', [
+	'config' => ['theme' => 'dark', 'language' => 'en'],
+]);
+```
+
+### DateTime Objects
+
+```php
+$qb->insert('events', [
+	'name' => 'Conference',
+	'start_date' => new DateTime('2023-06-01'),
+]);
+```
+
+## Utility Methods
+
+### Build Query String
+
+Build a WHERE clause string separately:
+
+```php
+$whereString = $qb->buildQueryString(['active' => 1, 'role' => 'admin'], [
+	'table' => 'users',
+	'operator' => 'AND',
+	'validate' => true,
+]);
+```
+
+### Parse Column
+
+Format column names with backticks:
+
+```php
+$parsed = $qb->parseColumn('name', 'users');
+// `users`.`name`
+```
+
+### Parse Value
+
+Format values for SQL:
+
+```php
+$parsed = $qb->parseValue('John', 'varchar');
+// 'John'
+
+$parsed = $qb->parseValue(null);
+// NULL
+```
+
+### Automatic parsing
+
+Please note: all column names and values are already automatically parsed, the `parseColumn` and `parseValue` methods are for exception use cases.
+
+### Get Fields Involved in WHERE
+
+Extract field names from a WHERE clause:
+
+```php
+$fields = $qb->getFieldsInvolvedInWhere([
+	'name' => 'John',
+	'age' => ['>', 18],
+	'OR' => [
+		'status' => 'active',
+		'verified' => 1,
+	],
+]);
+// Returns: ['name', 'age', 'status', 'verified']
+```
+
+## Validation
+
+The QueryBuilder validates queries against your database schema by default:
+
+- **Column existence**: Ensures columns exist in the specified table
+- **Data types**: Validates that values match column types (int, varchar, date, etc.)
+- **Length constraints**: Checks varchar/char length limits
+- **NULL constraints**: Prevents NULL values for NOT NULL columns
+- **Foreign keys**: Auto-detects FK relationships for joins
+
+### Disable Validation
+
+```php
+// Disable validation for specific operations
+$qb->insert('users', $data, ['validate_data' => false]);
+$qb->update('users', $where, $data, ['validate_where' => false, 'validate_data' => false]);
+$qb->select('users', $where, ['validate_where' => false]);
+```
+
+### Cast NULL Values
+
+When `cast_null` is enabled, NULL values for NOT NULL columns are automatically converted:
+
+```php
+$qb->insert('users', [
+	'name' => null,  // Will be cast to '' for varchar
+	'age' => null,   // Will be cast to 0 for int
+], ['cast_null' => true]);
+```
+
+Cast values:
+- **Numeric types** (int, float, etc.): `0`
+- **Date**: `0000-00-00`
+- **Time**: `00:00:00`
+- **DateTime**: `0000-00-00 00:00:00`
+- **Other types**: `''` (empty string)
+
+## Best Practices
+
+1. **Use validation**: Keep validation enabled to catch errors early
+2. **Use prepared statements**: Always execute queries with PDO prepared statements
+3. **Table aliases**: Use aliases for complex queries with joins
+4. **Specific fields**: Select only the fields you need instead of `*`
+5. **Indexes**: Ensure WHERE and JOIN columns are indexed
+6. **Foreign keys**: Define FKs properly to leverage auto-detection in joins
+
+## Error Handling
+
+The QueryBuilder throws exceptions for various error conditions:
+
+```php
+try {
+	$query = $qb->select('users', ['nonexistent_column' => 1]);
+} catch (\Exception $e) {
+	// Handle error: Column "nonexistent_column" does not exist in table "users"
+}
+```
+
+Common exceptions:
+- Column does not exist
+- Invalid operator
+- Bad value type for column
+- Invalid date format
+- Length exceeded for varchar/char columns
+- NULL value for NOT NULL column
+- Ambiguous foreign key in joins
+- Missing required join parameters
+
+## Examples
+
+### Pagination
+
+```php
+$page = 1;
+$perPage = 20;
+
+$query = $qb->select('users', ['active' => 1], [
+	'order_by' => 'created_at DESC',
+	'limit' => $perPage,
+	'offset' => ($page - 1) * $perPage,
+]);
+```
+
+### Search with Filters
+
+```php
+$query = $qb->select('products', [
+	'category_id' => ['IN', [1, 2, 3]],
+	'price' => ['BETWEEN', [10, 100]],
+	'active' => 1,
+	'OR' => [
+		'name' => ['LIKE', '%' . $searchTerm . '%'],
+		'description' => ['LIKE', '%' . $searchTerm . '%'],
+	],
+], [
+	'order_by' => 'created_at DESC',
+	'limit' => 50,
+]);
+```
+
+### Complex Join Query
+
+```php
+$query = $qb->select('orders', ['orders.status' => 'completed'], [
+	'alias' => 'o',
+	'fields' => [
+		'id',
+		'total',
+		'created_at',
+	],
+	'joins' => [
+		[
+			'table' => 'users',
+			'alias' => 'u',
+			'on' => ['o.user_id' => 'u.id'],
+			'fields' => [
+				'name' => 'customer_name',
+				'email' => 'customer_email',
+			],
+		],
+		[
+			'table' => 'order_items',
+			'alias' => 'oi',
+			'type' => 'LEFT',
+			'on' => ['o.id' => 'oi.order_id'],
+			'fields' => [],
+		],
+	],
+	'count' => ['oi.id' => 'total_items'],
+	'sum' => ['oi.quantity' => 'total_quantity'],
+	'group_by' => ['o.id'],
+	'order_by' => [['o.created_at', 'DESC']],
+]);
+```
+
+### Conditional Update
+
+```php
+$query = $qb->update('users',
+	[
+		'last_login' => ['<', date('Y-m-d', strtotime('-30 days'))],
+		'status' => 'active',
+	],
+	[
+		'status' => 'inactive',
+		'updated_at' => date('Y-m-d H:i:s'),
+	]
+);
+```
