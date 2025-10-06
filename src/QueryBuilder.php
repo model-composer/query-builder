@@ -502,10 +502,15 @@ class QueryBuilder
 				} else {
 					switch (count($item)) {
 						case 1:
-							if (in_array(strtoupper(array_key_first($item)), ['OR', 'AND']))
+							if (in_array(strtoupper(array_key_first($item)), ['OR', 'AND'])) {
 								$substr = $this->buildQueryString(reset($item), array_merge($options, ['operator' => strtoupper(array_key_first($item))]));
-							else
+							} elseif (!is_numeric($k) and isset($tableModel->columns[$k]) and $tableModel->columns[$k]['type'] === 'json') {
+								$column = $k;
+								$operator = '=';
+								$value = $item;
+							} else {
 								throw new \Exception('Query build error: wrong items number in array #1');
+							}
 							break;
 						case 2:
 							if (is_numeric($k)) {
