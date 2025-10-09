@@ -1,5 +1,5 @@
 ---
-description: Docs and usage examples for ModEl Query Builder - use this when you have to build queries via the database methods (select, insert, selectAll, update, delete, etc)
+description: Docs and usage examples for ModEl Query Builder - use this when you have to build queries via the database methods (select, insert, selectAll, update, delete, etc) or via the ORM (->one, ->all)
 alwaysApply: false
 ---
 A powerful SQL query builder for PHP that provides a fluent interface for constructing database queries with automatic validation against your database schema.
