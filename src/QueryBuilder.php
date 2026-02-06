@@ -345,8 +345,15 @@ class QueryBuilder
 			if (!is_array($options['group_by']))
 				$options['group_by'] = [$options['group_by']];
 
-			foreach ($options['group_by'] as &$field)
-				[$_1, $_2, $field, $_3] = $this->parseInputColumn($field, $table, $options['joins'], $options['alias'] ?? null);
+			foreach ($options['group_by'] as &$field) {
+				if (preg_match('/^(\w+)\((.+)\)$/', $field, $matches)) {
+					$func = strtoupper($matches[1]);
+					[$_1, $_2, $parsedInner, $_3] = $this->parseInputColumn($matches[2], $table, $options['joins'], $options['alias'] ?? null);
+					$field = $func . '(' . $parsedInner . ')';
+				} else {
+					[$_1, $_2, $field, $_3] = $this->parseInputColumn($field, $table, $options['joins'], $options['alias'] ?? null);
+				}
+			}
 			unset($field);
 
 			$qry .= ' GROUP BY ' . implode(',', $options['group_by']);
@@ -362,7 +369,13 @@ class QueryBuilder
 					if (!in_array(strtoupper($sortingField[1]), ['ASC', 'DESC']))
 						throw new \Exception('Bad "order by" direction');
 
-					[$_1, $_2, $sortingField[0], $_3] = $this->parseInputColumn($sortingField[0], $table, $options['joins'], $options['alias'] ?? null);
+					if (preg_match('/^(\w+)\((.+)\)$/', $sortingField[0], $matches)) {
+						$func = strtoupper($matches[1]);
+						[$_1, $_2, $parsedInner, $_3] = $this->parseInputColumn($matches[2], $table, $options['joins'], $options['alias'] ?? null);
+						$sortingField[0] = $func . '(' . $parsedInner . ')';
+					} else {
+						[$_1, $_2, $sortingField[0], $_3] = $this->parseInputColumn($sortingField[0], $table, $options['joins'], $options['alias'] ?? null);
+					}
 					$sortingField = implode(' ', $sortingField);
 				}
 				unset($sortingField);
