@@ -125,7 +125,7 @@ class QueryBuilder
 			'cast_null' => false,
 		], $options);
 
-		$options['joins'] = $this->normalizeJoins($options['alias'] ?? $table, $options['joins']);
+		$options['joins'] = $this->normalizeJoins($table, $options['joins']);
 
 		$whereStr = $this->buildQueryString($where, [
 			'table' => $table,
@@ -171,7 +171,7 @@ class QueryBuilder
 			'validate_where' => true,
 		], $options);
 
-		$options['joins'] = $this->normalizeJoins($options['alias'] ?? $table, $options['joins']);
+		$options['joins'] = $this->normalizeJoins($table, $options['joins']);
 
 		$whereStr = $this->buildQueryString($where, [
 			'table' => $table,
@@ -219,7 +219,7 @@ class QueryBuilder
 			'validate_where' => true,
 		], $options);
 
-		$options['joins'] = $this->normalizeJoins($options['alias'] ?? $table, $options['joins']);
+		$options['joins'] = $this->normalizeJoins($table, $options['joins']);
 
 		$whereStr = $this->buildQueryString($where, [
 			'table' => $table,
@@ -337,7 +337,7 @@ class QueryBuilder
 			}
 		}
 
-		$qry = 'SELECT ' . $fields_str . ' FROM `' . $table . '`' . $joinStr;
+		$qry = 'SELECT ' . $fields_str . ' FROM `' . $table . '`' . ($options['alias'] ? ' `' . $options['alias'] . '`' : '') . $joinStr;
 		if ($whereStr)
 			$qry .= ' WHERE ' . $whereStr;
 
