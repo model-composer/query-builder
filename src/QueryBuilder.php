@@ -1033,10 +1033,13 @@ class QueryBuilder
 			$v = json_encode($v);
 
 		if (is_array($v)) {
-			if ($type === 'point')
-				return 'POINT(' . $v['lng'] . ',' . $v['lat'] . ')';
-			else
+			if ($type === 'point') {
+				if (!isset($v['lng'], $v['lat']) or !is_numeric($v['lng']) or !is_numeric($v['lat']))
+					throw new \Exception('Invalid point value');
+				return 'POINT(' . (float)$v['lng'] . ',' . (float)$v['lat'] . ')';
+			} else {
 				throw new \Exception('Db error: unknown value type in query (' . print_r($v, true) . ')');
+			}
 		} else {
 			return $this->getDb()->quote($v);
 		}
